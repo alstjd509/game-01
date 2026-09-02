@@ -20,7 +20,7 @@ HK.ShopScene = class extends Phaser.Scene {
     // 직전 런 요약
     if (this.summary.gained !== undefined) {
       var s = this.summary;
-      var lostPct = Math.round((1 - C.DEATH_KEEP) * 100); // 손실률은 config에서 파생(하드코딩 금지)
+      var lostPct = Math.round((1 - HK.state.deathKeep()) * 100); // 손실률은 가방 레벨에서 파생(하드코딩 금지)
       var line = s.died
         ? '질식! 수확 ' + s.raw + 'G → ' + s.gained + 'G (' + lostPct + '% 손실) · 깊이 ' + s.depth + 'm'
         : '귀환 성공! +' + s.gained + 'G · 깊이 ' + s.depth + 'm';
@@ -36,7 +36,7 @@ HK.ShopScene = class extends Phaser.Scene {
       }).setOrigin(0.5);
 
     // 업그레이드 목록
-    var keys = ['tank', 'pick', 'lamp'], y = 170, self = this;
+    var keys = ['tank', 'pick', 'lamp', 'bag', 'scan'], y = 170, self = this;
     keys.forEach(function (key) {
       var up = C.UPGRADES[key];
       var lv = m[key + 'Lv'];
@@ -65,7 +65,7 @@ HK.ShopScene = class extends Phaser.Scene {
       } else {
         self.add.text(W - 16, y + 10, 'MAX', { fontFamily: 'sans-serif', fontSize: '14px', color: '#8ee8a0' }).setOrigin(1, 0.5);
       }
-      y += 58;
+      y += 54; // 업그레이드 5종이 한 화면에 들어가도록 간격 축소 (콘텐츠 5단계)
     });
 
     // 잠수 시작

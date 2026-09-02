@@ -9,7 +9,7 @@ window.HK = window.HK || {};
 HK.state = {
   // relics: 유물 확정 회수 여부(3개) / deaths·totalEarned: 엔딩 통계용 / endingSeen: 엔딩 1회 표시 후 무한 모드
   meta: {
-    gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bestDepth: 0, runs: 0,
+    gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, bestDepth: 0, runs: 0,
     relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
   },
 
@@ -27,10 +27,16 @@ HK.state = {
   // 상점의 "기록 초기화" — 개발·재미판정용 전체 리셋
   reset: function () {
     this.meta = {
-      gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bestDepth: 0, runs: 0,
+      gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, bestDepth: 0, runs: 0,
       relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
     };
     this.save();
+  },
+
+  // 사망 시 수확 유지 비율 — 가방 레벨에 따라 (명세 §2.5)
+  deathKeep: function () {
+    var arr = HK.CFG.DEATH_KEEP_BY_BAG;
+    return arr[Math.min(this.meta.bagLv, arr.length - 1)];
   },
 
   // 이번 런의 시작(=최대) 산소. ?o2= 디버그가 있으면 그 값이 최우선

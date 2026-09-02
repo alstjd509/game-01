@@ -18,6 +18,7 @@ HK.MineScene = class extends Phaser.Scene {
     this.carriedRelics = []; // 이번 런에 주운 유물 인덱스 — 귀환해야 확정, 사망하면 광산에 남는다
     this.stamps = {};      // 방문 칸의 가스 카운트 각인 (지뢰찾기식 추론 재료)
     this.warned = false;   // 산소 30% 경고는 런당 1회
+    this.scanUsed = false; // 스캐너는 런당 1회 (콘텐츠 5단계)
     this.gy = C.HUD_H;
 
     this.cameras.main.setBackgroundColor('#15171d');
@@ -135,6 +136,15 @@ HK.MineScene = class extends Phaser.Scene {
     this.returnBtn.on('pointerdown', this.returnHome, this);
     hud.push(this.returnBtn);
 
+    // 스캐너 버튼 (콘텐츠 5단계) — 보유 시에만 표시, 런당 1회
+    this.scanBtn = this.add.text(W - 88, 32, '스캔', {
+      fontFamily: 'sans-serif', fontSize: '13px', color: '#ffffff',
+      backgroundColor: '#5a4d7d', padding: { x: 9, y: 5 },
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    this.scanBtn.on('pointerdown', this.useScan, this);
+    this.scanBtn.setVisible(HK.state.meta.scanLv >= 1);
+    hud.push(this.scanBtn);
+
     for (var i = 0; i < hud.length; i++) hud[i].setScrollFactor(0).setDepth(10);
   }
 
@@ -180,6 +190,31 @@ HK.MineScene = class extends Phaser.Scene {
       if (!t.dug && t.t === type) n++;
     }
     return n;
+  }
+
+  // 스캐너(콘텐츠 5단계, 명세 §2.11): 런당 1회, 주변 5×5 범위의 숨은 위험을 잠시 공개.
+  // "아껴둘까, 지금 쓸까"가 또 하나의 의사결정이 되도록 1회로 제한한다
+  useScan() {
+    if (this.ended || this.scanUsed || HK.state.meta.scanLv < 1) return;
+    this.scanUsed = true;
+    this.scanBtn.setStyle({ backgroundColor: '#2a2d35', color: '#777c88' }).setText('스캔 완료');
+    var C = HK.CFG, marks = [], R = C.SCAN_RANGE;
+    for (var dr = -R; dr <= R; dr++) for (var dc = -R; dc <= R; dc++) {
+      var r = this.py + dr, c = this.px + dc;
+      if (r < 0 || r >= C.ROWS || c < 0 || c >= C.COLS) continue;
+      var t = this.map[r][c];
+      if (!t.dug && HK.isHazard(t.t)) {
+        marks.push(this.add.rectangle(
+          c * C.TILE + C.TILE / 2, this.gy + r * C.TILE + C.TILE / 2,
+          C.TILE - 10, C.TILE - 10,
+          t.t === 'gas' ? 0x8ee85a : 0xffb45c, 0.6
+        ).setDepth(7));
+      }
+    }
+    if (marks.length === 0) this.floatText(this.px, this.py, '주변이 깨끗하다', '#8ee8a0');
+    this.time.delayedCall(C.SCAN_REVEAL_MS, function () {
+      marks.forEach(function (m) { m.destroy(); });
+    });
   }
 
   // 방문한 칸에 위험 카운트를 각인 — 여러 칸의 숫자를 조합해 위치를 추론하게 한다 (명세 §2.4)
@@ -303,8 +338,9 @@ HK.MineScene = class extends Phaser.Scene {
     if (this.ended) return;
     this.ended = true;
     var C = HK.CFG, W = C.COLS * C.TILE, self = this;
-    var kept = Math.floor(this.loot * C.DEATH_KEEP);
-    var lostPct = Math.round((1 - C.DEATH_KEEP) * 100);
+    var keep = HK.state.deathKeep(); // 가방 레벨이 손실을 완화한다 (콘텐츠 5단계)
+    var kept = Math.floor(this.loot * keep);
+    var lostPct = Math.round((1 - keep) * 100);
     var ov = [];
     ov.push(this.add.rectangle(0, 0, W, 1000, 0x000000, 0.72).setOrigin(0, 0));
     ov.push(this.add.text(W / 2, 195, '질식했다…', {
