@@ -15,7 +15,7 @@ HK.ShopScene = class extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#191b21');
 
     this.add.text(W / 2, 34, '지상 기지', { fontFamily: 'sans-serif', fontSize: '24px', color: '#e8e2c8', fontStyle: 'bold' }).setOrigin(0.5);
-    this.add.text(W / 2, 60, '한 칸 더 — 그레이박스 v0', { fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480' }).setOrigin(0.5);
+    this.add.text(W / 2, 60, '맨 땅에 헤딩 — 그레이박스 v0.2', { fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480' }).setOrigin(0.5);
 
     // 직전 런 요약
     if (this.summary.gained !== undefined) {
