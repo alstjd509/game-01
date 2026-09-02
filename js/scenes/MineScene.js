@@ -36,6 +36,16 @@ HK.MineScene = class extends Phaser.Scene {
     }
     for (var r2 = 0; r2 < C.ROWS; r2++) for (var c2 = 0; c2 < C.COLS; c2++) this.paintTile(r2, c2);
 
+    // 층 경계 라벨 — "여기서부터 다른 층"이라는 체감 (명세 §2.8)
+    for (var si = 1; si < C.STRATA.length; si++) {
+      var st = C.STRATA[si];
+      this.add.text(C.COLS * C.TILE / 2, this.gy + st.from * C.TILE - 8,
+        '—  ' + st.name + '  ' + st.from + 'm  —', {
+          fontFamily: 'sans-serif', fontSize: '12px', color: '#b8bcc7',
+          backgroundColor: '#000000', padding: { x: 6, y: 2 },
+        }).setOrigin(0.5).setDepth(6);
+    }
+
     // 플레이어
     this.player = this.add.rectangle(
       this.px * C.TILE + C.TILE / 2, this.gy + this.py * C.TILE + C.TILE / 2,
@@ -84,7 +94,7 @@ HK.MineScene = class extends Phaser.Scene {
     if (r === 0) col = C.COLORS.surface;
     else if (tile.dug) col = C.COLORS.empty;
     else if (tile.t === 'stone') col = C.COLORS.stone;
-    else col = C.COLORS.dirt; // 흙·광물·가스는 같은 흙 표면 (가스는 숨은 위험)
+    else col = HK.strataAt(r).dirtColor; // 흙·광물·가스·붕괴는 그 층의 흙 표면 (위험은 숨어 있다)
     o.rect.setFillStyle(col);
     // 광물·캡슐은 항상 보인다(경로 계획 대상). 가스만 숨어 있다.
     var visible = !tile.dug && (HK.isMineral(tile.t) || tile.t === 'capsule');
@@ -103,9 +113,11 @@ HK.MineScene = class extends Phaser.Scene {
     this.o2Text = this.add.text(196, 8, '', { fontFamily: 'sans-serif', fontSize: '13px', color: '#cfe8ff' });
     hud.push(this.o2BarBg, this.o2Bar, this.o2Text);
 
-    this.infoText = this.add.text(10, 34, '', { fontFamily: 'sans-serif', fontSize: '13px', color: '#e8e2c8' });
-    this.hintText = this.add.text(170, 34, '', { fontFamily: 'sans-serif', fontSize: '13px', color: '#ff9d5c', fontStyle: 'bold' });
-    hud.push(this.infoText, this.hintText);
+    this.infoText = this.add.text(10, 38, '', { fontFamily: 'sans-serif', fontSize: '13px', color: '#e8e2c8' });
+    // 힌트 2종을 색으로 구분해 세로로 쌓는다: 가스(초록) / 붕괴(주황)
+    this.gasHintText = this.add.text(172, 27, '', { fontFamily: 'sans-serif', fontSize: '12px', color: '#8ee85a', fontStyle: 'bold' });
+    this.colHintText = this.add.text(172, 44, '', { fontFamily: 'sans-serif', fontSize: '12px', color: '#ffb45c', fontStyle: 'bold' });
+    hud.push(this.infoText, this.gasHintText, this.colHintText);
 
     this.returnBtn = this.add.text(W - 10, 32, '⬆ 귀환', {
       fontFamily: 'sans-serif', fontSize: '15px', color: '#ffffff',
@@ -124,8 +136,9 @@ HK.MineScene = class extends Phaser.Scene {
     this.o2Bar.setFillStyle(ratio < 0.3 ? 0xff5a52 : 0x3fd0ff);
     this.o2Text.setText('산소 ' + Math.max(0, this.o2) + '/' + max);
     this.infoText.setText('깊이 ' + this.py + 'm · 수확 ' + this.loot + 'G');
-    var n = this.gasNeighbors();
-    this.hintText.setText(n > 0 ? '쉭쉭… 인접 가스 ×' + n : '');
+    var ng = this.gasNeighbors(), nc = this.collapseNeighbors();
+    this.gasHintText.setText(ng > 0 ? '쉭쉭… 가스 ×' + ng : '');
+    this.colHintText.setText(nc > 0 ? '우르릉… 붕괴 ×' + nc : '');
 
     // 산소 30% 경고(런당 1회) — 죽음을 "예고된 선택"으로 만든다: 여기서부터는 버티는 게 내 결정
     if (!this.warned && ratio > 0 && ratio <= 0.3) {
@@ -139,11 +152,13 @@ HK.MineScene = class extends Phaser.Scene {
     }
   }
 
-  // 가스 힌트(차별화 핵심): 해당 칸에서 "안 파인" 인접 타일 중 가스 개수.
+  // 힌트(차별화 핵심): 해당 칸에서 "안 파인" 인접 타일 중 위험 타일 개수.
+  // 계열 2종 — 가스("쉭쉭", 초록)와 붕괴("우르릉", 주황)는 따로 센다 (콘텐츠 1단계).
   // 램프 Lv0 = 4방향, Lv1 = 8방향(대각 포함). 위치는 특정해주지 않는다 — 추론은 플레이어 몫.
-  gasNeighbors() { return this.gasNeighborsAt(this.py, this.px); }
+  gasNeighbors() { return this.countNeighborsAt(this.py, this.px, 'gas'); }
+  collapseNeighbors() { return this.countNeighborsAt(this.py, this.px, 'collapse'); }
 
-  gasNeighborsAt(r0, c0) {
+  countNeighborsAt(r0, c0, type) {
     var dirs4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
     var dirs8 = dirs4.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
     var dirs = HK.state.meta.lampLv >= 1 ? dirs8 : dirs4;
@@ -152,30 +167,36 @@ HK.MineScene = class extends Phaser.Scene {
       var r = r0 + dirs[i][1], c = c0 + dirs[i][0];
       if (r < 0 || r >= HK.CFG.ROWS || c < 0 || c >= HK.CFG.COLS) continue;
       var t = this.map[r][c];
-      if (!t.dug && t.t === 'gas') n++;
+      if (!t.dug && t.t === type) n++;
     }
     return n;
   }
 
-  // 방문한 칸에 가스 카운트를 각인 — 여러 칸의 숫자를 조합해 가스 위치를 추론하게 한다 (명세 §2.4)
-  // 가스가 터지거나 파이면 정보가 변하므로, 행동마다 모든 각인을 다시 계산한다
+  // 방문한 칸에 위험 카운트를 각인 — 여러 칸의 숫자를 조합해 위치를 추론하게 한다 (명세 §2.4)
+  // 각인은 칸당 2개: 왼쪽(초록)=가스, 오른쪽(주황)=붕괴. 위험이 파이면 전체 재계산
   stampVisited(r, c) {
     var key = r + ',' + c;
     if (!this.stamps[key]) {
-      var C = HK.CFG;
-      this.stamps[key] = this.add.text(
-        c * C.TILE + C.TILE / 2, this.gy + r * C.TILE + C.TILE / 2, '', {
-          fontFamily: 'sans-serif', fontSize: '13px', color: '#ffce6a', fontStyle: 'bold',
-        }).setOrigin(0.5).setDepth(4);
+      var C = HK.CFG, cx = c * C.TILE + C.TILE / 2, cy = this.gy + r * C.TILE + C.TILE / 2;
+      this.stamps[key] = {
+        g: this.add.text(cx - 9, cy, '', {
+          fontFamily: 'sans-serif', fontSize: '13px', color: '#8ee85a', fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(4),
+        c: this.add.text(cx + 9, cy, '', {
+          fontFamily: 'sans-serif', fontSize: '13px', color: '#ffb45c', fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(4),
+      };
     }
     this.updateStamps();
   }
 
   updateStamps() {
     for (var key in this.stamps) {
-      var p = key.split(',');
-      var n = this.gasNeighborsAt(parseInt(p[0], 10), parseInt(p[1], 10));
-      this.stamps[key].setText(n > 0 ? String(n) : '');
+      var p = key.split(','), r = parseInt(p[0], 10), c = parseInt(p[1], 10);
+      var ng = this.countNeighborsAt(r, c, 'gas');
+      var nc = this.countNeighborsAt(r, c, 'collapse');
+      this.stamps[key].g.setText(ng > 0 ? String(ng) : '');
+      this.stamps[key].c.setText(nc > 0 ? String(nc) : '');
     }
   }
 
@@ -212,6 +233,11 @@ HK.MineScene = class extends Phaser.Scene {
         this.o2 -= C.GAS_PENALTY;
         this.floatText(c, r, '가스! -' + C.GAS_PENALTY + ' 산소', '#8ee85a');
         this.cameras.main.shake(140, 0.008);
+      } else if (tile.t === 'collapse') {
+        // 붕괴: 가스보다 아프다 (2층부터, 별도 힌트 계열 "우르릉")
+        this.o2 -= C.COLLAPSE_PENALTY;
+        this.floatText(c, r, '붕괴! -' + C.COLLAPSE_PENALTY + ' 산소', '#ffb45c');
+        this.cameras.main.shake(220, 0.014);
       } else if (tile.t === 'capsule') {
         // 산소 캡슐: 최대치를 넘지 않는 만큼만 회복 (굴착 비용 차감 후 기준)
         var healed = Math.min(HK.state.maxO2(), this.o2 + C.O2_CAPSULE) - this.o2;

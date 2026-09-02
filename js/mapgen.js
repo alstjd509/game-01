@@ -1,13 +1,12 @@
 // ============================================================================
-// 광산 생성 — 타일: { t: 'dirt'|'stone'|'copper'|'silver'|'gold'|'gas'|'capsule'|'empty', dug: bool }
+// 광산 생성 — 타일: { t: 'dirt'|'stone'|'copper'|'silver'|'gold'|'gas'|'collapse'|'capsule'|'empty', dug: bool }
 //
-// 설계 의도 (docs/04_시스템_명세.md §2.8, §3):
-// - 깊이 d(행 번호)가 커질수록 광물 가치와 위험(가스)이 "함께" 오른다
-//   → push-your-luck의 핵심: 더 내려갈 이유와 내려가면 안 될 이유를 같이 준다
-// - 구리는 얕을수록 흔하고(초반 경제), 은 6m·금 16m부터 등장(깊이 목표 제시)
-// - 2026-09-02 조정 1회: 가스 밀도 상향(힌트를 볼 일이 없다는 판정 반영),
-//   산소 캡슐 추가(경로 선택지+회복), 은·금 군집 생성(눈에 보이는 유혹)
-// - 확률 곡선을 바꾸면 명세 §3 표를 같이 갱신할 것
+// 설계 의도 (docs/05_콘텐츠_설계.md §2, 명세 §2.8·§3):
+// - 층(스트라타) 기반 생성: 표토(1~20m) → 암반대(21~40m) → 심부(41~64m)
+//   층마다 팔레트·확률이 달라 "내려왔다"는 체감을 만든다. 확률 정본 = config.js의 STRATA
+// - 깊을수록 보상(은→금)과 위험(가스·붕괴)이 함께 오른다 = push-your-luck의 핵심
+// - 가스·붕괴는 흙과 같은 외형(숨은 위험, 힌트 2종으로만 추론)
+// - 층 구성·확률을 바꾸면 config.js STRATA 수정 + 명세 §3 표 동기화
 // ============================================================================
 window.HK = window.HK || {};
 
@@ -17,21 +16,16 @@ HK.genMap = function () {
     var row = [];
     for (var c = 0; c < C.COLS; c++) {
       if (r === 0) { row.push({ t: 'empty', dug: true }); continue; } // 0행 = 지표
-      var d = r, t = 'dirt', roll = Math.random();
-      var pGas    = Math.min(0.18, 0.05 + d * 0.004);    // 위험: 밀도 상향(조정 1회), 상한 18%
-      var pStone  = Math.min(0.30, 0.06 + d * 0.004);    // 장애물(산소 비용 벽), 상한 30%
-      var pCopper = Math.max(0.02, 0.11 - d * 0.001);    // 초반 경제 — 얕을수록 흔함
-      var pSilver = d < 6  ? 0 : Math.min(0.09, (d - 6) * 0.004);   // 6m부터
-      var pGold   = d < 16 ? 0 : Math.min(0.07, (d - 16) * 0.0035); // 16m부터
-      var pCaps   = 0.025;                                // 산소 캡슐 — 깊이 무관, 보이는 회복처
-      // 누적 확률로 단일 roll 판정 (순서: 가스 → 돌 → 구리 → 은 → 금 → 캡슐 → 흙)
-      var acc = pGas;
+      var d = r, st = HK.strataAt(d), t = 'dirt', roll = Math.random();
+      // 누적 확률로 단일 roll 판정 (순서: 가스 → 붕괴 → 돌 → 구리 → 은 → 금 → 캡슐 → 흙)
+      var acc = HK.tileProb(st, 'gas', d);
       if (roll < acc) t = 'gas';
-      else if (roll < (acc += pStone)) t = 'stone';
-      else if (roll < (acc += pCopper)) t = 'copper';
-      else if (roll < (acc += pSilver)) t = 'silver';
-      else if (roll < (acc += pGold)) t = 'gold';
-      else if (roll < (acc += pCaps)) t = 'capsule';
+      else if (roll < (acc += HK.tileProb(st, 'collapse', d))) t = 'collapse';
+      else if (roll < (acc += HK.tileProb(st, 'stone', d))) t = 'stone';
+      else if (roll < (acc += HK.tileProb(st, 'copper', d))) t = 'copper';
+      else if (roll < (acc += HK.tileProb(st, 'silver', d))) t = 'silver';
+      else if (roll < (acc += HK.tileProb(st, 'gold', d))) t = 'gold';
+      else if (roll < (acc += C.CAPSULE_PROB)) t = 'capsule';
       row.push({ t: t, dug: false });
     }
     g.push(row);
@@ -53,10 +47,10 @@ HK.genMap = function () {
   });
 
   // "첫 재미 10초" 보장 (기획서 §4): 시작 지점 근처는 안전 + 즉시 보상
-  // - 1~3행의 중앙 3열(3~5열)에서 가스 제거
+  // - 1~3행의 중앙 3열(3~5열)에서 숨은 위험(가스·붕괴) 제거
   // - [1,4]·[2,3]에 구리 강제 배치 (이미 다른 광물·캡슐이면 그대로 둠)
   for (var rr = 1; rr <= 3; rr++) for (var cc = 3; cc <= 5; cc++) {
-    if (g[rr][cc].t === 'gas') g[rr][cc].t = 'dirt';
+    if (g[rr][cc].t === 'gas' || g[rr][cc].t === 'collapse') g[rr][cc].t = 'dirt';
   }
   if (g[1][4].t === 'stone' || g[1][4].t === 'dirt') g[1][4].t = 'copper';
   if (g[2][3].t === 'stone' || g[2][3].t === 'dirt') g[2][3].t = 'copper';
@@ -64,3 +58,4 @@ HK.genMap = function () {
 };
 
 HK.isMineral = function (t) { return t === 'copper' || t === 'silver' || t === 'gold'; };
+HK.isHazard = function (t) { return t === 'gas' || t === 'collapse'; };

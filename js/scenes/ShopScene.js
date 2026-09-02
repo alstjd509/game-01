@@ -72,8 +72,8 @@ HK.ShopScene = class extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     dive.on('pointerdown', function () { self.scene.start('Mine'); });
 
-    this.add.text(W / 2, y + 100, '가스는 흙과 똑같이 생겼다. 힌트(쉭쉭…)를 읽어라.', {
-      fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480',
+    this.add.text(W / 2, y + 100, '가스도 붕괴도 흙과 똑같이 생겼다.\n힌트를 읽어라 — 초록(쉭쉭…)=가스, 주황(우르릉…)=붕괴.', {
+      fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480', align: 'center',
     }).setOrigin(0.5);
 
     // 기록 초기화 (개발·판정용)
