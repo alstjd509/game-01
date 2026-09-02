@@ -21,6 +21,7 @@ HK.MineScene = class extends Phaser.Scene {
     this.carriedRelics = []; // 이번 런에 주운 유물 인덱스 — 귀환해야 확정, 사망하면 광산에 남는다
     this.stamps = {};      // 방문 칸의 가스 카운트 각인 (지뢰찾기식 추론 재료)
     this.warned = false;   // 산소 30% 경고는 런당 1회
+    this.warned15 = false; // 겁쟁이 전용 15% 경고 (캐릭터 능력)
     this.scanUsed = false; // 스캐너는 런당 1회 (콘텐츠 5단계)
     this.gy = C.HUD_H;
 
@@ -54,9 +55,10 @@ HK.MineScene = class extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(6);
     }
 
-    // 플레이어 — 광부 도트 스프라이트
+    // 플레이어 — 선택된 캐릭터의 광부 도트 스프라이트
     this.player = this.add.image(
-      this.px * C.TILE + C.TILE / 2, this.gy + this.py * C.TILE + C.TILE / 2, 'spr_player'
+      this.px * C.TILE + C.TILE / 2, this.gy + this.py * C.TILE + C.TILE / 2,
+      'spr_' + HK.state.charDef().id
     ).setScale(4).setDepth(5);
     this.cameras.main.startFollow(this.player, false, 0.15, 0.15);
     this.cameras.main.centerOn(this.player.x, this.player.y); // 승강기 출발 시 즉시 그 깊이를 비춘다
@@ -108,7 +110,8 @@ HK.MineScene = class extends Phaser.Scene {
     o.base.setTexture(baseKey);
     // 오버레이: 광물·캡슐은 보인다(경로 계획 대상) — 단, 암흑 층에서는 램프 Lv2 없이 숨겨진다 (콘텐츠 4단계).
     // 유물은 목표물이므로 암흑에서도 항상 보인다. 가스·붕괴는 어디서든 숨어 있다(오버레이 없음).
-    var darkHidden = HK.strataAt(r).dark && HK.state.meta.lampLv < C.LAMP_REQ_DARK;
+    var darkHidden = HK.strataAt(r).dark && HK.state.meta.lampLv < C.LAMP_REQ_DARK
+      && !HK.state.charDef().darkSight; // 기록자는 어둠을 안다
     var ovKey = null;
     if (!tile.dug) {
       if (tile.t === 'relic') ovKey = 'ov_relic';
@@ -171,13 +174,22 @@ HK.MineScene = class extends Phaser.Scene {
     // 산소 30% 경고(런당 1회) — 죽음을 "예고된 선택"으로 만든다: 여기서부터는 버티는 게 내 결정
     if (!this.warned && ratio > 0 && ratio <= 0.3) {
       this.warned = true;
-      var C = HK.CFG, W = C.COLS * C.TILE, self = this;
-      var warn = this.add.text(W / 2, 250, '산소 30%!  더 갈까, 귀환할까?', {
-        fontFamily: 'sans-serif', fontSize: '17px', color: '#ffffff', fontStyle: 'bold',
-        backgroundColor: '#8a2f2f', padding: { x: 12, y: 8 },
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(15);
-      this.tweens.add({ targets: warn, alpha: 0, delay: 1300, duration: 500, onComplete: function () { warn.destroy(); } });
+      this.showWarn('산소 30%!  더 갈까, 귀환할까?');
     }
+    // 겁쟁이 전용 15% 추가 경고 (캐릭터 능력, docs/08)
+    if (!this.warned15 && HK.state.charDef().secondWarn && ratio > 0 && ratio <= 0.15) {
+      this.warned15 = true;
+      this.showWarn('산소 15%!  마지막 경고다.');
+    }
+  }
+
+  showWarn(msg) {
+    var C = HK.CFG, W = C.COLS * C.TILE;
+    var warn = this.add.text(W / 2, 250, msg, {
+      fontFamily: 'sans-serif', fontSize: '17px', color: '#ffffff', fontStyle: 'bold',
+      backgroundColor: '#8a2f2f', padding: { x: 12, y: 8 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(15);
+    this.tweens.add({ targets: warn, alpha: 0, delay: 1300, duration: 500, onComplete: function () { warn.destroy(); } });
   }
 
   // 힌트(차별화 핵심): 해당 칸에서 "안 파인" 인접 타일 중 위험 타일 개수.
@@ -189,7 +201,7 @@ HK.MineScene = class extends Phaser.Scene {
   countNeighborsAt(r0, c0, type) {
     var dirs4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
     var dirs8 = dirs4.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
-    var dirs = HK.state.meta.lampLv >= 1 ? dirs8 : dirs4;
+    var dirs = (HK.state.meta.lampLv >= 1 || HK.state.charDef().hint8) ? dirs8 : dirs4;
     var n = 0;
     for (var i = 0; i < dirs.length; i++) {
       var r = r0 + dirs[i][1], c = c0 + dirs[i][0];
@@ -286,7 +298,8 @@ HK.MineScene = class extends Phaser.Scene {
       this.o2 -= cost;
       tile.dug = true;
       if (HK.isMineral(tile.t)) {
-        var v = C.VALUE[tile.t];
+        // 캐릭터 가치 보정(고물상 +25%·겁쟁이 −15%) — 반올림
+        var v = Math.round(C.VALUE[tile.t] * (HK.state.charDef().valueMult || 1));
         this.loot += v;
         this.floatText(c, r, '+' + v + 'G', '#ffd23f');
       } else if (tile.t === 'gas') {
@@ -382,8 +395,10 @@ HK.MineScene = class extends Phaser.Scene {
     ov.push(this.add.text(W / 2, 195, '질식했다…', {
       fontFamily: 'sans-serif', fontSize: '26px', color: '#ff6a5c', fontStyle: 'bold',
     }).setOrigin(0.5));
-    // 사망 서브텍스트는 매번 다르게 (docs/07 §4)
-    var dline = HK.STORY.DEATH_LINES[Math.floor(Math.random() * HK.STORY.DEATH_LINES.length)];
+    // 사망 서브텍스트는 매번 다르게 — 공용 풀 + 캐릭터 전용 문구 (docs/07 §4, docs/08)
+    var cs = HK.STORY.CHAR_STORY[HK.state.meta.charId] || {};
+    var dpool = HK.STORY.DEATH_LINES.concat(cs.death || []);
+    var dline = dpool[Math.floor(Math.random() * dpool.length)];
     ov.push(this.add.text(W / 2, 232, dline, {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#c9c2ae',
     }).setOrigin(0.5));
@@ -431,9 +446,11 @@ HK.MineScene = class extends Phaser.Scene {
       }
     }
     HK.state.save();
+    // 캐릭터 해금 판정 (도전과제형, docs/08) — 생환 시의 잔여 산소가 겁쟁이 해금 조건
+    var newChars = HK.state.checkUnlocks({ died: died, o2: this.o2 });
     var allDone = m.relics[0] && m.relics[1] && m.relics[2];
     if (!died && allDone && !m.endingSeen) { this.scene.start('Ending'); return; }
     if (dest === 'Mine') this.scene.start('Mine');
-    else this.scene.start('Shop', { gained: gained, raw: this.loot, died: died, depth: this.maxDepth, securedRelics: secured });
+    else this.scene.start('Shop', { gained: gained, raw: this.loot, died: died, depth: this.maxDepth, securedRelics: secured, newChars: newChars });
   }
 };

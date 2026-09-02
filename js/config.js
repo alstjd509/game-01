@@ -70,6 +70,19 @@ HK.CFG = {
   // 승강기 출발 깊이(레벨 인덱스와 대응: Lv0=0m만, Lv1=21m 해금, Lv2=41m 해금)
   ELEV_DEPTHS: [0, 21, 41],
   ELEV_REQ_PICK: [0, 0, 2], // 각 레벨 "구매"에 필요한 곡괭이 Lv — 41m 승강기는 암반을 뚫은 자만(곡괭이 Lv2)
+
+  // --- 캐릭터 (콘텐츠 6단계, docs/08_캐릭터.md) ---
+  // 원칙: 순수 상위호환 금지 — 능력은 플레이 스타일 변형(트레이드오프 필수). 해금은 도전과제형
+  CHARS: [
+    { id: 'rookie', name: '신입',
+      ability: '표준', unlockDesc: '기본' },
+    { id: 'scrapper', name: '고물상', valueMult: 1.25, o2Bonus: -10,
+      ability: '광물 가치 +25% · 최대 산소 −10', unlockDesc: '누적 수확 300G' },
+    { id: 'coward', name: '겁쟁이', deathKeepBonus: 0.2, valueMult: 0.85, secondWarn: true,
+      ability: '사망 손실 −20%p · 산소 15% 추가 경고 · 광물 가치 −15%', unlockDesc: '산소 5 이하로 생환' },
+    { id: 'chronicler', name: '기록자', darkSight: true, hint8: true, shopMult: 1.25,
+      ability: '암흑 투시 · 힌트 8방향 · 상점 가격 +25%', unlockDesc: '엔딩 달성' },
+  ],
 };
 
 // ============================================================================

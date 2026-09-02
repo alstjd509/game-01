@@ -198,9 +198,22 @@ window.HK = window.HK || {};
     mk(scene, 'ov_relic', RELIC, { p: '#c77dff', d: '#8e4fd0', l: '#e3c2ff' });
     mk(scene, 'ov_note', NOTE, { w: '#e8e2d0', l: '#b8b2a0' }); // 쪽지 — 접힌 종이
 
-    mk(scene, 'spr_player', PLAYER, {
+    // 캐릭터별 광부 스프라이트 — 같은 패턴, 헬멧·작업복 팔레트 스왑 (docs/08)
+    mk(scene, 'spr_rookie', PLAYER, {
       H: '#ffd23f', L: '#fffbe0', S: '#e8b48a', E: '#2b2b2b',
       B: '#2e5d7d', b: '#24485f', F: '#2b2b2b',
+    });
+    mk(scene, 'spr_scrapper', PLAYER, {
+      H: '#d98f33', L: '#ffe9c2', S: '#e8b48a', E: '#2b2b2b',
+      B: '#7a5a36', b: '#5f452a', F: '#2b2b2b',
+    });
+    mk(scene, 'spr_coward', PLAYER, {
+      H: '#9adf6a', L: '#f2ffe0', S: '#e8b48a', E: '#2b2b2b',
+      B: '#3f7a4a', b: '#31603a', F: '#2b2b2b',
+    });
+    mk(scene, 'spr_chronicler', PLAYER, {
+      H: '#c77dff', L: '#f0e0ff', S: '#d8c2a8', E: '#2b2b2b',
+      B: '#5c3f80', b: '#493066', F: '#2b2b2b',
     });
   };
 })();

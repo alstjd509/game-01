@@ -11,6 +11,7 @@ HK.EndingScene = class extends Phaser.Scene {
     var C = HK.CFG, W = C.COLS * C.TILE, m = HK.state.meta, self = this;
     m.endingSeen = true; // 엔딩은 1회성 — 진입 즉시 기록해 재진입을 막는다
     HK.state.save();
+    var newChars = HK.state.checkUnlocks({}); // 엔딩 = 기록자 해금 조건 (docs/08)
     this.cameras.main.setBackgroundColor('#0d0f13');
 
     this.add.text(W / 2, 48, '기록의 끝', {
@@ -36,12 +37,19 @@ HK.EndingScene = class extends Phaser.Scene {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#e8e2c8', align: 'center', lineSpacing: 6,
     }).setOrigin(0.5, 0);
 
-    // 마무리 — 플레이어가 다음 "기록자"가 된다 (docs/07 §6)
-    this.add.text(W / 2, y + 92, HK.STORY.ENDING_CLOSER, {
+    // 마무리 — 캐릭터별 변형 우선 (기록자로 클리어 시 "이번에는, 돌아왔다." — docs/08)
+    var closer = (HK.STORY.CHAR_STORY[m.charId] || {}).endingCloser || HK.STORY.ENDING_CLOSER;
+    this.add.text(W / 2, y + 92, closer, {
       fontFamily: 'sans-serif', fontSize: '13px', color: '#b8b2a0', align: 'center', lineSpacing: 6,
     }).setOrigin(0.5, 0);
 
-    var btn = this.add.text(W / 2, y + 152, '⛏  무한 모드로 계속', {
+    if (newChars.length > 0) {
+      this.add.text(W / 2, y + 132, '⛏ 새 광부 해금 — 기록자', {
+        fontFamily: 'sans-serif', fontSize: '13px', color: '#c77dff', fontStyle: 'bold',
+      }).setOrigin(0.5);
+    }
+
+    var btn = this.add.text(W / 2, y + 164, '⛏  무한 모드로 계속', {
       fontFamily: 'sans-serif', fontSize: '17px', color: '#ffffff', backgroundColor: '#2e7d4f', padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', function () { self.scene.start('Shop', {}); });

@@ -27,6 +27,16 @@ HK.ShopScene = class extends Phaser.Scene {
       this.add.text(W / 2, 92, line, {
         fontFamily: 'sans-serif', fontSize: '14px', color: s.died ? '#ff8a7a' : '#8ee8a0',
       }).setOrigin(0.5);
+      // 새 캐릭터 해금 알림 (도전과제 달성 순간, docs/08)
+      if (s.newChars && s.newChars.length > 0) {
+        var names = s.newChars.map(function (id) {
+          for (var i = 0; i < C.CHARS.length; i++) if (C.CHARS[i].id === id) return C.CHARS[i].name;
+          return id;
+        }).join(', ');
+        this.add.text(W / 2, 109, '⛏ 새 광부 해금 — ' + names, {
+          fontFamily: 'sans-serif', fontSize: '12px', color: '#8ee8a0', fontStyle: 'bold',
+        }).setOrigin(0.5);
+      }
     }
 
     var relicCnt = (m.relics[0] ? 1 : 0) + (m.relics[1] ? 1 : 0) + (m.relics[2] ? 1 : 0);
@@ -35,13 +45,20 @@ HK.ShopScene = class extends Phaser.Scene {
         fontFamily: 'sans-serif', fontSize: '15px', color: '#ffd23f',
       }).setOrigin(0.5);
 
+    // 광부 선택 버튼 (콘텐츠 6단계, docs/08) — 오버레이 픽커를 연다
+    var charBtn = this.add.text(W / 2, 148, '광부: ' + HK.state.charDef().name + '  ▾', {
+      fontFamily: 'sans-serif', fontSize: '13px', color: '#cfe8ff', backgroundColor: '#232630', padding: { x: 12, y: 4 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    charBtn.on('pointerdown', function () { self.showCharPicker(); });
+
     // 업그레이드 목록
     var keys = ['tank', 'pick', 'lamp', 'bag', 'scan', 'elev'], y = 170, self = this;
     keys.forEach(function (key) {
       var up = C.UPGRADES[key];
       var lv = m[key + 'Lv'];
       var maxed = lv >= up.costs.length;
-      var cost = maxed ? null : up.costs[lv];
+      // 상점 가격은 캐릭터 보정(기록자 +25%)을 반영 (docs/08)
+      var cost = maxed ? null : Math.round(up.costs[lv] * (HK.state.charDef().shopMult || 1));
 
       self.add.text(16, y, up.name + ' Lv' + lv, { fontFamily: 'sans-serif', fontSize: '15px', color: '#e8e2c8' });
       self.add.text(16, y + 20, HK.upgradeDesc[key](lv) + (maxed ? ' (최대)' : ' → ' + HK.upgradeDesc[key](lv + 1)), {
@@ -150,6 +167,83 @@ HK.ShopScene = class extends Phaser.Scene {
       ov.push(ok);
       ov.forEach(function (o) { o.setDepth(30); });
       ok.on('pointerdown', function () { ov.forEach(function (o) { o.destroy(); }); });
+    }
+  }
+
+  // 광부 선택 픽커 (콘텐츠 6단계, docs/08) — 해금/잠김·능력·진행도 표시
+  showCharPicker() {
+    var C = HK.CFG, W = C.COLS * C.TILE, m = HK.state.meta, self = this;
+    var ov = [this.add.rectangle(0, 0, W, 1000, 0x000000, 0.93).setOrigin(0, 0).setInteractive()];
+    ov.push(this.add.text(W / 2, 30, '광부 선택', {
+      fontFamily: 'sans-serif', fontSize: '18px', color: '#e8e2c8', fontStyle: 'bold',
+    }).setOrigin(0.5));
+    var destroyAll = function () { ov.forEach(function (o) { o.destroy(); }); };
+
+    var oy = 68;
+    C.CHARS.forEach(function (ch) {
+      var unlocked = !!m.chars[ch.id];
+      var selected = (m.charId === ch.id);
+      ov.push(self.add.text(20, oy, ch.name + (selected ? '  — 선택됨' : ''), {
+        fontFamily: 'sans-serif', fontSize: '15px', fontStyle: 'bold',
+        color: unlocked ? (selected ? '#8ee8a0' : '#e8e2c8') : '#666b76',
+      }));
+      ov.push(self.add.text(20, oy + 21, ch.ability, {
+        fontFamily: 'sans-serif', fontSize: '12px', color: unlocked ? '#9aa0ad' : '#565b66',
+      }));
+      var sub = '';
+      if (!unlocked) {
+        sub = '잠김 — ' + ch.unlockDesc;
+        if (ch.id === 'scrapper') sub += ' (' + Math.min(m.totalEarned, 300) + '/300G)';
+      } else if (!selected) sub = '클릭해서 선택';
+      if (sub) ov.push(self.add.text(20, oy + 38, sub, {
+        fontFamily: 'sans-serif', fontSize: '11px', color: unlocked ? '#6f7480' : '#8a5f5f',
+      }));
+      if (unlocked && !selected) {
+        var hit = self.add.rectangle(W / 2, oy + 26, W - 20, 60, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+        ov.push(hit);
+        hit.on('pointerdown', function () {
+          m.charId = ch.id;
+          HK.state.save();
+          destroyAll();
+          self.selectCharFlow(ch);
+        });
+      }
+      oy += 70;
+    });
+
+    var close = this.add.text(W / 2, 618, '닫기', {
+      fontFamily: 'sans-serif', fontSize: '14px', color: '#ffffff', backgroundColor: '#3a3f4a', padding: { x: 18, y: 6 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    ov.push(close);
+    ov.forEach(function (o) { o.setDepth(40); });
+    close.on('pointerdown', destroyAll);
+  }
+
+  // 캐릭터 선택 직후 — 전용 인트로를 1회 보여주고 상점 갱신 (docs/08)
+  selectCharFlow(ch) {
+    var m = HK.state.meta, self = this;
+    var cs = HK.STORY.CHAR_STORY[ch.id] || {};
+    if (cs.intro && !m.charIntroSeen[ch.id]) {
+      m.charIntroSeen[ch.id] = true;
+      HK.state.save();
+      var C = HK.CFG, W = C.COLS * C.TILE;
+      var ov = [
+        this.add.rectangle(0, 0, W, 1000, 0x000000, 0.95).setOrigin(0, 0).setInteractive(),
+        this.add.text(W / 2, 195, ch.name, {
+          fontFamily: 'sans-serif', fontSize: '20px', color: '#e8e2c8', fontStyle: 'bold',
+        }).setOrigin(0.5),
+        this.add.text(W / 2, 245, cs.intro.join('\n'), {
+          fontFamily: 'sans-serif', fontSize: '14px', color: '#d9d3c0', align: 'center', lineSpacing: 8,
+        }).setOrigin(0.5, 0),
+      ];
+      var ok = this.add.text(W / 2, 430, '내려갈 준비가 됐다', {
+        fontFamily: 'sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#2e7d4f', padding: { x: 18, y: 8 },
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      ov.push(ok);
+      ov.forEach(function (o) { o.setDepth(45); });
+      ok.on('pointerdown', function () { self.scene.restart(self.summary); });
+    } else {
+      this.scene.restart(this.summary);
     }
   }
 

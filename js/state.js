@@ -14,6 +14,9 @@ HK.state = {
     relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
     introSeen: false,                     // 오프닝 1회 (스토리)
     notes: [false, false, false, false, false, false, false, false], // 쪽지 8개 수집 여부 (줍는 즉시 확정)
+    charId: 'rookie',                     // 선택된 캐릭터 (콘텐츠 6단계)
+    chars: { rookie: true },              // 캐릭터 해금 여부
+    charIntroSeen: {},                    // 캐릭터별 인트로 1회 표시
   },
 
   load: function () {
@@ -35,14 +38,18 @@ HK.state = {
       relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
       introSeen: false,
       notes: [false, false, false, false, false, false, false, false],
+      charId: 'rookie',
+      chars: { rookie: true },
+      charIntroSeen: {},
     };
     this.save();
   },
 
-  // 사망 시 수확 유지 비율 — 가방 레벨에 따라 (명세 §2.5)
+  // 사망 시 수확 유지 비율 — 가방 레벨 + 캐릭터 보정(겁쟁이), 상한 0.9 (명세 §2.5)
   deathKeep: function () {
     var arr = HK.CFG.DEATH_KEEP_BY_BAG;
-    return arr[Math.min(this.meta.bagLv, arr.length - 1)];
+    var base = arr[Math.min(this.meta.bagLv, arr.length - 1)];
+    return Math.min(0.9, base + (this.charDef().deathKeepBonus || 0));
   },
 
   // 이번 런의 출발 깊이 — 선택값이 승강기 해금 범위를 넘지 않게 검증 (명세 §2.12)
@@ -53,9 +60,32 @@ HK.state = {
     return this.meta.startDepth;
   },
 
-  // 이번 런의 시작(=최대) 산소. ?o2= 디버그가 있으면 그 값이 최우선
+  // 이번 런의 시작(=최대) 산소. 캐릭터 보정 포함, ?o2= 디버그가 최우선
   maxO2: function () {
     if (HK.CFG.O2_DEBUG) return HK.CFG.O2_DEBUG;
-    return HK.CFG.O2_BASE + HK.CFG.O2_PER_TANK * this.meta.tankLv;
+    var v = HK.CFG.O2_BASE + HK.CFG.O2_PER_TANK * this.meta.tankLv + (this.charDef().o2Bonus || 0);
+    return Math.max(15, v);
+  },
+
+  // 선택된 캐릭터 정의 (없거나 깨진 값이면 신입)
+  charDef: function () {
+    var id = this.meta.charId || 'rookie';
+    for (var i = 0; i < HK.CFG.CHARS.length; i++) if (HK.CFG.CHARS[i].id === id) return HK.CFG.CHARS[i];
+    return HK.CFG.CHARS[0];
+  },
+
+  // 도전과제형 캐릭터 해금 판정 — 런 정산·엔딩 시 호출, 새로 열린 id 배열 반환 (docs/08)
+  checkUnlocks: function (ctx) {
+    var m = this.meta, newly = [];
+    var cond = {
+      scrapper: m.totalEarned >= 300,
+      coward: !!(ctx && !ctx.died && ctx.o2 !== undefined && ctx.o2 <= 5), // 아슬아슬 "생환"만 인정
+      chronicler: m.endingSeen,
+    };
+    ['scrapper', 'coward', 'chronicler'].forEach(function (id) {
+      if (cond[id] && !m.chars[id]) { m.chars[id] = true; newly.push(id); }
+    });
+    if (newly.length) this.save();
+    return newly;
   },
 };
