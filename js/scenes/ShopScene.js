@@ -142,6 +142,11 @@ HK.ShopScene = class extends Phaser.Scene {
       .setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
     recBtn.on('pointerdown', function () { self.showRecords(); });
 
+    // ❓ 설명서 — 규칙·타일 도감 (js/manual.js)
+    var manBtn = this.add.text(92, 622, '❓ 설명서', { fontFamily: 'sans-serif', fontSize: '12px', color: '#9aa0ad' })
+      .setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    manBtn.on('pointerdown', function () { HK.openManual(self); });
+
     // 기록 초기화 (개발·판정용)
     var reset = this.add.text(W - 16, 622, '기록 초기화', { fontFamily: 'sans-serif', fontSize: '11px', color: '#555a66' })
       .setOrigin(1, 0.5).setInteractive({ useHandCursor: true });

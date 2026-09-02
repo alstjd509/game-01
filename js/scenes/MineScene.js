@@ -91,7 +91,7 @@ HK.MineScene = class extends Phaser.Scene {
 
   // 키보드 입력 → 인접 4방향 행동 (onTap과 동일한 최종 경로 act 사용)
   tryDir(dx, dy) {
-    if (this.ended) return;
+    if (this.ended || this.manualOpen) return;
     var r = this.py + dy, c = this.px + dx;
     if (r < 0 || r >= HK.CFG.ROWS || c < 0 || c >= HK.CFG.COLS) return;
     this.act(r, c);
@@ -146,6 +146,14 @@ HK.MineScene = class extends Phaser.Scene {
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
     this.returnBtn.on('pointerdown', this.returnHome, this);
     hud.push(this.returnBtn);
+
+    // 설명서 버튼 — 규칙·타일 도감 (js/manual.js)
+    this.helpBtn = this.add.text(300, 8, '?', {
+      fontFamily: 'sans-serif', fontSize: '13px', color: '#cfd4dc', fontStyle: 'bold',
+      backgroundColor: '#3a3f4a', padding: { x: 8, y: 3 },
+    }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true });
+    this.helpBtn.on('pointerdown', function () { HK.openManual(this); }, this);
+    hud.push(this.helpBtn);
 
     // 스캐너 버튼 (콘텐츠 5단계) — 보유 시에만 표시, 런당 1회
     this.scanBtn = this.add.text(W - 88, 32, '스캔', {
@@ -266,9 +274,9 @@ HK.MineScene = class extends Phaser.Scene {
   }
 
   // ---------- 입력·행동 ----------
-  // 입력 규칙: 런 종료 후 무시 / HUD 영역(화면 좌표) 무시 / 인접 4방향만 허용
+  // 입력 규칙: 런 종료·설명서 열림 시 무시 / HUD 영역(화면 좌표) 무시 / 인접 4방향만 허용
   onTap(pointer) {
-    if (this.ended) return;
+    if (this.ended || this.manualOpen) return;
     if (pointer.y < HK.CFG.HUD_H) return; // HUD 영역(귀환 버튼 등)은 자체 핸들러가 처리
     var C = HK.CFG;
     var c = Math.floor(pointer.worldX / C.TILE);
