@@ -1,4 +1,9 @@
-// 광산 씬 — 코어 루프: 클릭 굴착, 산소 관리, 가스 힌트, 귀환/사망 정산
+// ============================================================================
+// 광산 씬 — 코어 루프 전체 (규칙 정본: docs/04_시스템_명세.md §2)
+//   클릭 굴착·이동(4방향) → 산소 소모 → 광물 수확 / 가스 발동 → 귀환 or 사망 정산
+// 런 중 상태(o2·loot·위치)는 이 씬이 소유하고 저장하지 않는다(새로고침 = 런 포기).
+// 메타 반영은 doFinish()에서만 일어난다.
+// ============================================================================
 window.HK = window.HK || {};
 
 HK.MineScene = class extends Phaser.Scene {
@@ -91,6 +96,8 @@ HK.MineScene = class extends Phaser.Scene {
     this.hintText.setText(n > 0 ? '쉭쉭… 인접 가스 ×' + n : '');
   }
 
+  // 가스 힌트(차별화 핵심): 현재 위치에서 "안 파인" 인접 타일 중 가스 개수.
+  // 램프 Lv0 = 4방향, Lv1 = 8방향(대각 포함). 위치는 특정해주지 않는다 — 추론은 플레이어 몫.
   gasNeighbors() {
     var dirs4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
     var dirs8 = dirs4.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
@@ -106,9 +113,10 @@ HK.MineScene = class extends Phaser.Scene {
   }
 
   // ---------- 입력·행동 ----------
+  // 입력 규칙: 런 종료 후 무시 / HUD 영역(화면 좌표) 무시 / 인접 4방향만 허용
   onTap(pointer) {
     if (this.ended) return;
-    if (pointer.y < HK.CFG.HUD_H) return; // HUD 영역
+    if (pointer.y < HK.CFG.HUD_H) return; // HUD 영역(귀환 버튼 등)은 자체 핸들러가 처리
     var C = HK.CFG;
     var c = Math.floor(pointer.worldX / C.TILE);
     var r = Math.floor((pointer.worldY - this.gy) / C.TILE);
@@ -117,6 +125,9 @@ HK.MineScene = class extends Phaser.Scene {
     this.act(r, c);
   }
 
+  // 행동 1회 처리 — 산소 비용 규칙(명세 §2.2):
+  //   파인 칸 이동 = MOVE_COST / 흙·광물·가스 굴착 = DIRT_COST / 돌 = 곡괭이Lv별
+  //   가스는 굴착 비용에 GAS_PENALTY가 "추가"된다 (합계 1+8)
   act(r, c) {
     var C = HK.CFG, tile = this.map[r][c];
     if (tile.dug) {
@@ -156,7 +167,8 @@ HK.MineScene = class extends Phaser.Scene {
     this.tweens.add({ targets: t, y: t.y - 26, alpha: 0, duration: 700, onComplete: function () { t.destroy(); } });
   }
 
-  // ---------- 종료 ----------
+  // ---------- 종료 (정산 규칙: 명세 §2.5) ----------
+  // 귀환 = 수확 100% 확정(언제든, 무료) / 사망 = DEATH_KEEP 비율만 확정(내림)
   returnHome() {
     if (this.ended) return;
     this.finish(this.loot, false);
@@ -185,6 +197,7 @@ HK.MineScene = class extends Phaser.Scene {
   finishDead(kept) { this.doFinish(kept, true); }
   finish(gained, died) { this.ended = true; this.doFinish(gained, died); }
 
+  // 메타 반영은 이 함수에서만: 골드 확정 + 런 수 + 최고 깊이 + 저장 → 상점으로
   doFinish(gained, died) {
     var m = HK.state.meta;
     m.gold += gained;
