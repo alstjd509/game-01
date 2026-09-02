@@ -16,6 +16,8 @@ HK.CFG = {
   MOVE_COST: 1,             // 이미 파인 칸으로 이동
   DIRT_COST: 1,             // 흙·광물·가스 굴착 (가스는 아래 페널티가 추가됨)
   STONE_COST_BY_PICK: [3, 2, 1], // 곡괭이 Lv0/1/2일 때 돌 굴착 비용
+  HARDROCK_COST: 4,         // 단단한 암반 굴착 비용 (콘텐츠 2단계)
+  PICK_REQ_HARDROCK: 2,     // 암반을 팔 수 있는 최소 곡괭이 레벨 — 미만이면 굴착 자체가 불가(하드 게이트)
 
   // --- 리스크·정산 ---
   GAS_PENALTY: 8,           // 가스 타일을 팠을 때 추가 산소 손실
@@ -31,10 +33,14 @@ HK.CFG = {
   // 주의: 가스·붕괴 타일은 그 층의 흙 색(STRATA.dirtColor)을 그대로 쓴다 = "숨은 위험"이 규칙의 핵심
   // (아래 dirt는 레거시 참조용 — 실제 흙 색은 층별 STRATA.dirtColor가 정본)
   COLORS: {
-    surface: 0x2e5d3a, dirt: 0x6e5a3e, stone: 0x868c96, empty: 0x232630,
+    surface: 0x2e5d3a, dirt: 0x6e5a3e, stone: 0x868c96, hardrock: 0x3e4550, empty: 0x232630,
     copper: 0xc1763f, silver: 0xd7dce4, gold: 0xffd23f, capsule: 0x63d8b2,
     player: 0x48c7e8, hudBg: 0x0d0f13,
   },
+
+  // 암반 게이트(콘텐츠 2단계): 심부 진입을 곡괭이 진척에 묶는 벽 (docs/05 §3)
+  // fullRow는 전부 암반(우회 불가), mixedRows는 mixedProb 확률로 암반 섞음
+  HARDROCK_GATE: { fullRow: 39, mixedRows: [38, 40], mixedProb: 0.35 },
 
   // --- 업그레이드 비용 곡선 (배열 길이 = 최대 레벨) ---
   UPGRADES: {
@@ -110,7 +116,11 @@ HK.tileProb = function (st, type, d) {
 // 상점에 표시되는 레벨별 효과 설명문 (레벨 lv "현재" 기준의 효과를 반환)
 HK.upgradeDesc = {
   tank: function (lv) { return '최대 산소 ' + (HK.CFG.O2_BASE + HK.CFG.O2_PER_TANK * lv); },
-  pick: function (lv) { return '돌 굴착 산소 ' + HK.CFG.STONE_COST_BY_PICK[lv]; },
+  pick: function (lv) {
+    var s = '돌 굴착 산소 ' + HK.CFG.STONE_COST_BY_PICK[lv];
+    if (lv >= HK.CFG.PICK_REQ_HARDROCK) s += ' · 암반 굴착 가능';
+    return s;
+  },
   lamp: function (lv) { return lv === 0 ? '가스 힌트: 상하좌우' : '가스 힌트: 8방향'; },
 };
 

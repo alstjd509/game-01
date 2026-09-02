@@ -94,6 +94,7 @@ HK.MineScene = class extends Phaser.Scene {
     if (r === 0) col = C.COLORS.surface;
     else if (tile.dug) col = C.COLORS.empty;
     else if (tile.t === 'stone') col = C.COLORS.stone;
+    else if (tile.t === 'hardrock') col = C.COLORS.hardrock; // 암반은 항상 보이는 벽 (게이트)
     else col = HK.strataAt(r).dirtColor; // 흙·광물·가스·붕괴는 그 층의 흙 표면 (위험은 숨어 있다)
     o.rect.setFillStyle(col);
     // 광물·캡슐은 항상 보인다(경로 계획 대상). 가스만 숨어 있다.
@@ -222,7 +223,14 @@ HK.MineScene = class extends Phaser.Scene {
     if (tile.dug) {
       this.o2 -= C.MOVE_COST;
     } else {
-      var cost = tile.t === 'stone' ? C.STONE_COST_BY_PICK[HK.state.meta.pickLv] : C.DIRT_COST;
+      // 암반 하드 게이트: 곡괭이 레벨 미달이면 산소 소모·이동 없이 거절만 (명세 §2.2)
+      if (tile.t === 'hardrock' && HK.state.meta.pickLv < C.PICK_REQ_HARDROCK) {
+        this.floatText(c, r, '너무 단단하다! 곡괭이 Lv' + C.PICK_REQ_HARDROCK + ' 필요', '#cfd4dc');
+        return;
+      }
+      var cost = tile.t === 'stone' ? C.STONE_COST_BY_PICK[HK.state.meta.pickLv]
+        : tile.t === 'hardrock' ? C.HARDROCK_COST
+        : C.DIRT_COST;
       this.o2 -= cost;
       tile.dug = true;
       if (HK.isMineral(tile.t)) {

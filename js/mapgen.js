@@ -46,6 +46,16 @@ HK.genMap = function () {
     if (g[nr][nc].t === 'dirt') g[nr][nc].t = g[s[0]][s[1]].t;
   });
 
+  // 암반 게이트 (콘텐츠 2단계, docs/05 §3): 암반대 하부를 벽으로 막아
+  // 심부(41m~) 진입을 곡괭이 Lv2 구매에 묶는다. fullRow는 우회 불가한 완전한 벽
+  var gate = C.HARDROCK_GATE;
+  for (var gc = 0; gc < C.COLS; gc++) g[gate.fullRow][gc] = { t: 'hardrock', dug: false };
+  gate.mixedRows.forEach(function (gr) {
+    for (var mc = 0; mc < C.COLS; mc++) {
+      if (Math.random() < gate.mixedProb) g[gr][mc] = { t: 'hardrock', dug: false };
+    }
+  });
+
   // "첫 재미 10초" 보장 (기획서 §4): 시작 지점 근처는 안전 + 즉시 보상
   // - 1~3행의 중앙 3열(3~5열)에서 숨은 위험(가스·붕괴) 제거
   // - [1,4]·[2,3]에 구리 강제 배치 (이미 다른 광물·캡슐이면 그대로 둠)
