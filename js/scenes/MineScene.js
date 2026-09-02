@@ -27,15 +27,16 @@ HK.MineScene = class extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#15171d');
     this.cameras.main.setBounds(0, 0, C.COLS * C.TILE, this.gy + C.ROWS * C.TILE + 100);
 
-    // 타일 렌더
+    // 타일 렌더 — 절차적 도트 텍스처 (js/textures.js). base = 지형, ov = 광석·캡슐·유물 오버레이
+    HK.buildTextures(this);
     this.tiles = [];
     for (var r = 0; r < C.ROWS; r++) {
       var row = [];
       for (var c = 0; c < C.COLS; c++) {
-        var x = c * C.TILE, y = this.gy + r * C.TILE;
-        var rect = this.add.rectangle(x + 1, y + 1, C.TILE - 2, C.TILE - 2).setOrigin(0, 0);
-        var inner = this.add.rectangle(x + C.TILE / 2, y + C.TILE / 2, 16, 16).setOrigin(0.5).setVisible(false);
-        row.push({ rect: rect, inner: inner });
+        var x = c * C.TILE + C.TILE / 2, y = this.gy + r * C.TILE + C.TILE / 2;
+        var base = this.add.image(x, y, 'tile_dirt_0').setScale(4);
+        var ov = this.add.image(x, y, 'ov_copper').setScale(4).setVisible(false);
+        row.push({ base: base, ov: ov });
       }
       this.tiles.push(row);
     }
@@ -53,11 +54,10 @@ HK.MineScene = class extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(6);
     }
 
-    // 플레이어
-    this.player = this.add.rectangle(
-      this.px * C.TILE + C.TILE / 2, this.gy + this.py * C.TILE + C.TILE / 2,
-      C.TILE - 16, C.TILE - 16, C.COLORS.player
-    ).setDepth(5);
+    // 플레이어 — 광부 도트 스프라이트
+    this.player = this.add.image(
+      this.px * C.TILE + C.TILE / 2, this.gy + this.py * C.TILE + C.TILE / 2, 'spr_player'
+    ).setScale(4).setDepth(5);
     this.cameras.main.startFollow(this.player, false, 0.15, 0.15);
     this.cameras.main.centerOn(this.player.x, this.player.y); // 승강기 출발 시 즉시 그 깊이를 비춘다
 
@@ -98,22 +98,25 @@ HK.MineScene = class extends Phaser.Scene {
   // ---------- 렌더 ----------
   paintTile(r, c) {
     var C = HK.CFG, tile = this.map[r][c], o = this.tiles[r][c];
-    var col;
-    if (r === 0) col = C.COLORS.surface;
-    else if (tile.dug) col = C.COLORS.empty;
-    else if (tile.t === 'stone') col = C.COLORS.stone;
-    else if (tile.t === 'hardrock') col = C.COLORS.hardrock; // 암반은 항상 보이는 벽 (게이트)
-    else col = HK.strataAt(r).dirtColor; // 흙·광물·가스·붕괴는 그 층의 흙 표면 (위험은 숨어 있다)
-    o.rect.setFillStyle(col);
-    // 광물·캡슐은 보인다(경로 계획 대상) — 단, 암흑 층에서는 램프 Lv2 없이 숨겨진다 (콘텐츠 4단계).
-    // 유물은 목표물이므로 암흑에서도 항상 보인다. 가스·붕괴는 어디서든 숨어 있다.
+    // 바탕 텍스처: 지표 / 파인 굴 / 돌 / 암반 / 층별 흙 (가스·붕괴·광물·캡슐·유물의 배경도 그 층의 흙)
+    var baseKey;
+    if (r === 0) baseKey = 'tile_surface';
+    else if (tile.dug) baseKey = 'tile_empty';
+    else if (tile.t === 'stone') baseKey = 'tile_stone';
+    else if (tile.t === 'hardrock') baseKey = 'tile_hardrock'; // 암반은 항상 보이는 벽 (게이트)
+    else baseKey = 'tile_dirt_' + C.STRATA.indexOf(HK.strataAt(r));
+    o.base.setTexture(baseKey);
+    // 오버레이: 광물·캡슐은 보인다(경로 계획 대상) — 단, 암흑 층에서는 램프 Lv2 없이 숨겨진다 (콘텐츠 4단계).
+    // 유물은 목표물이므로 암흑에서도 항상 보인다. 가스·붕괴는 어디서든 숨어 있다(오버레이 없음).
     var darkHidden = HK.strataAt(r).dark && HK.state.meta.lampLv < C.LAMP_REQ_DARK;
-    var visible = !tile.dug && (tile.t === 'relic' || (!darkHidden && (HK.isMineral(tile.t) || tile.t === 'capsule')));
-    o.inner.setVisible(visible);
-    if (visible) {
-      o.inner.setFillStyle(C.COLORS[tile.t]);
-      o.inner.setSize(tile.t === 'relic' ? 24 : 16, tile.t === 'relic' ? 24 : 16); // 유물은 더 크게 = 목표물
+    var ovKey = null;
+    if (!tile.dug) {
+      if (tile.t === 'relic') ovKey = 'ov_relic';
+      else if (!darkHidden && HK.isMineral(tile.t)) ovKey = 'ov_' + tile.t;
+      else if (!darkHidden && tile.t === 'capsule') ovKey = 'ov_capsule';
     }
+    if (ovKey) o.ov.setTexture(ovKey).setVisible(true);
+    else o.ov.setVisible(false);
   }
 
   buildHUD() {

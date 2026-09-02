@@ -14,6 +14,7 @@ HK.state.load();
     width: HK.CFG.COLS * HK.CFG.TILE,
     height: 640,
     backgroundColor: '#15171d',
+    pixelArt: true, // 도트 텍스처를 또렷하게 확대 (textures.js)
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: scenes,
   });
