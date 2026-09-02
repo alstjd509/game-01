@@ -36,7 +36,7 @@ HK.ShopScene = class extends Phaser.Scene {
       }).setOrigin(0.5);
 
     // 업그레이드 목록
-    var keys = ['tank', 'pick', 'lamp', 'bag', 'scan'], y = 170, self = this;
+    var keys = ['tank', 'pick', 'lamp', 'bag', 'scan', 'elev'], y = 170, self = this;
     keys.forEach(function (key) {
       var up = C.UPGRADES[key];
       var lv = m[key + 'Lv'];
@@ -49,37 +49,67 @@ HK.ShopScene = class extends Phaser.Scene {
       });
 
       if (!maxed) {
-        var afford = m.gold >= cost;
-        var btn = self.add.text(W - 16, y + 10, cost + 'G 구매', {
-          fontFamily: 'sans-serif', fontSize: '14px', color: afford ? '#ffffff' : '#777c88',
-          backgroundColor: afford ? '#2e5d7d' : '#2a2d35', padding: { x: 10, y: 6 },
-        }).setOrigin(1, 0.5);
-        if (afford) {
-          btn.setInteractive({ useHandCursor: true }).on('pointerdown', function () {
-            m.gold -= cost;
-            m[key + 'Lv'] += 1;
-            HK.state.save();
-            self.scene.restart(self.summary);
-          });
+        // 승강기 상위 레벨은 곡괭이 조건이 걸린다 — "암반을 뚫은 자만 승강기를 내린다" (명세 §2.12)
+        var reqPick = key === 'elev' ? (C.ELEV_REQ_PICK[lv + 1] || 0) : 0;
+        if (m.pickLv < reqPick) {
+          self.add.text(W - 16, y + 10, '곡괭이 Lv' + reqPick + ' 필요', {
+            fontFamily: 'sans-serif', fontSize: '13px', color: '#777c88',
+            backgroundColor: '#2a2d35', padding: { x: 10, y: 6 },
+          }).setOrigin(1, 0.5);
+        } else {
+          var afford = m.gold >= cost;
+          var btn = self.add.text(W - 16, y + 10, cost + 'G 구매', {
+            fontFamily: 'sans-serif', fontSize: '14px', color: afford ? '#ffffff' : '#777c88',
+            backgroundColor: afford ? '#2e5d7d' : '#2a2d35', padding: { x: 10, y: 6 },
+          }).setOrigin(1, 0.5);
+          if (afford) {
+            btn.setInteractive({ useHandCursor: true }).on('pointerdown', function () {
+              m.gold -= cost;
+              m[key + 'Lv'] += 1;
+              HK.state.save();
+              self.scene.restart(self.summary);
+            });
+          }
         }
       } else {
         self.add.text(W - 16, y + 10, 'MAX', { fontFamily: 'sans-serif', fontSize: '14px', color: '#8ee8a0' }).setOrigin(1, 0.5);
       }
-      y += 54; // 업그레이드 5종이 한 화면에 들어가도록 간격 축소 (콘텐츠 5단계)
+      y += 48; // 업그레이드 6종이 한 화면에 들어가도록 간격 축소
+    });
+
+    // 출발 깊이 선택 (승강기, 명세 §2.12) — 해금된 깊이만 활성, 선택은 저장됨
+    var selY = y + 8;
+    this.add.text(16, selY, '출발 깊이', { fontFamily: 'sans-serif', fontSize: '13px', color: '#9aa0ad' }).setOrigin(0, 0.5);
+    C.ELEV_DEPTHS.forEach(function (d, i) {
+      var unlocked = m.elevLv >= i;
+      var selected = HK.state.startDepth() === d;
+      var sb = self.add.text(104 + i * 74, selY, d + 'm', {
+        fontFamily: 'sans-serif', fontSize: '14px',
+        color: selected ? '#ffffff' : (unlocked ? '#cfd4dc' : '#555a66'),
+        backgroundColor: selected ? '#2e7d4f' : '#2a2d35',
+        padding: { x: 15, y: 6 },
+      }).setOrigin(0, 0.5);
+      if (unlocked) {
+        sb.setInteractive({ useHandCursor: true }).on('pointerdown', function () {
+          m.startDepth = d;
+          HK.state.save();
+          self.scene.restart(self.summary);
+        });
+      }
     });
 
     // 잠수 시작
-    var dive = this.add.text(W / 2, y + 40, '⛏  잠수 시작', {
+    var dive = this.add.text(W / 2, y + 56, '⛏  잠수 시작', {
       fontFamily: 'sans-serif', fontSize: '20px', color: '#ffffff', backgroundColor: '#2e7d4f', padding: { x: 24, y: 12 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     dive.on('pointerdown', function () { self.scene.start('Mine'); });
 
-    this.add.text(W / 2, y + 100, '가스도 붕괴도 흙과 똑같이 생겼다.\n힌트를 읽어라 — 초록(쉭쉭…)=가스, 주황(우르릉…)=붕괴.', {
+    this.add.text(W / 2, y + 108, '가스도 붕괴도 흙과 똑같이 생겼다.\n힌트를 읽어라 — 초록(쉭쉭…)=가스, 주황(우르릉…)=붕괴.', {
       fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480', align: 'center',
     }).setOrigin(0.5);
 
     // 기록 초기화 (개발·판정용)
-    var reset = this.add.text(W / 2, 600, '기록 초기화', { fontFamily: 'sans-serif', fontSize: '11px', color: '#555a66' })
+    var reset = this.add.text(W / 2, 622, '기록 초기화', { fontFamily: 'sans-serif', fontSize: '11px', color: '#555a66' })
       .setOrigin(0.5).setInteractive({ useHandCursor: true });
     reset.on('pointerdown', function () { HK.state.reset(); self.scene.restart({}); });
 

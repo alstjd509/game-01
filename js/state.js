@@ -9,7 +9,8 @@ window.HK = window.HK || {};
 HK.state = {
   // relics: 유물 확정 회수 여부(3개) / deaths·totalEarned: 엔딩 통계용 / endingSeen: 엔딩 1회 표시 후 무한 모드
   meta: {
-    gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, bestDepth: 0, runs: 0,
+    gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, elevLv: 0, startDepth: 0,
+    bestDepth: 0, runs: 0,
     relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
   },
 
@@ -27,7 +28,8 @@ HK.state = {
   // 상점의 "기록 초기화" — 개발·재미판정용 전체 리셋
   reset: function () {
     this.meta = {
-      gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, bestDepth: 0, runs: 0,
+      gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, elevLv: 0, startDepth: 0,
+      bestDepth: 0, runs: 0,
       relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
     };
     this.save();
@@ -37,6 +39,14 @@ HK.state = {
   deathKeep: function () {
     var arr = HK.CFG.DEATH_KEEP_BY_BAG;
     return arr[Math.min(this.meta.bagLv, arr.length - 1)];
+  },
+
+  // 이번 런의 출발 깊이 — 선택값이 승강기 해금 범위를 넘지 않게 검증 (명세 §2.12)
+  startDepth: function () {
+    var depths = HK.CFG.ELEV_DEPTHS;
+    var idx = depths.indexOf(this.meta.startDepth);
+    if (idx === -1 || idx > this.meta.elevLv) return 0;
+    return this.meta.startDepth;
   },
 
   // 이번 런의 시작(=최대) 산소. ?o2= 디버그가 있으면 그 값이 최우선

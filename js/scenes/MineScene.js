@@ -12,9 +12,12 @@ HK.MineScene = class extends Phaser.Scene {
   create() {
     var C = HK.CFG;
     this.map = HK.genMap();
-    this.px = 4; this.py = 0;
+    // 승강기 출발 (명세 §2.12): 해금·선택된 깊이에서 시작 — 매 런 반복되는 하강세를 제거한다
+    var sd = HK.state.startDepth();
+    if (sd > 0) this.map[sd][4] = { t: 'empty', dug: true };
+    this.px = 4; this.py = sd;
     this.o2 = HK.state.maxO2();
-    this.loot = 0; this.maxDepth = 0; this.ended = false;
+    this.loot = 0; this.maxDepth = sd; this.ended = false;
     this.carriedRelics = []; // 이번 런에 주운 유물 인덱스 — 귀환해야 확정, 사망하면 광산에 남는다
     this.stamps = {};      // 방문 칸의 가스 카운트 각인 (지뢰찾기식 추론 재료)
     this.warned = false;   // 산소 30% 경고는 런당 1회
@@ -56,6 +59,7 @@ HK.MineScene = class extends Phaser.Scene {
       C.TILE - 16, C.TILE - 16, C.COLORS.player
     ).setDepth(5);
     this.cameras.main.startFollow(this.player, false, 0.15, 0.15);
+    this.cameras.main.centerOn(this.player.x, this.player.y); // 승강기 출발 시 즉시 그 깊이를 비춘다
 
     this.buildHUD();
     this.input.on('pointerdown', this.onTap, this);
