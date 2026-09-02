@@ -15,6 +15,7 @@ HK.MineScene = class extends Phaser.Scene {
     this.px = 4; this.py = 0;
     this.o2 = HK.state.maxO2();
     this.loot = 0; this.maxDepth = 0; this.ended = false;
+    this.carriedRelics = []; // 이번 런에 주운 유물 인덱스 — 귀환해야 확정, 사망하면 광산에 남는다
     this.stamps = {};      // 방문 칸의 가스 카운트 각인 (지뢰찾기식 추론 재료)
     this.warned = false;   // 산소 30% 경고는 런당 1회
     this.gy = C.HUD_H;
@@ -97,10 +98,13 @@ HK.MineScene = class extends Phaser.Scene {
     else if (tile.t === 'hardrock') col = C.COLORS.hardrock; // 암반은 항상 보이는 벽 (게이트)
     else col = HK.strataAt(r).dirtColor; // 흙·광물·가스·붕괴는 그 층의 흙 표면 (위험은 숨어 있다)
     o.rect.setFillStyle(col);
-    // 광물·캡슐은 항상 보인다(경로 계획 대상). 가스만 숨어 있다.
-    var visible = !tile.dug && (HK.isMineral(tile.t) || tile.t === 'capsule');
+    // 광물·캡슐·유물은 항상 보인다(경로 계획 대상). 가스·붕괴만 숨어 있다.
+    var visible = !tile.dug && (HK.isMineral(tile.t) || tile.t === 'capsule' || tile.t === 'relic');
     o.inner.setVisible(visible);
-    if (visible) o.inner.setFillStyle(C.COLORS[tile.t]);
+    if (visible) {
+      o.inner.setFillStyle(C.COLORS[tile.t]);
+      o.inner.setSize(tile.t === 'relic' ? 24 : 16, tile.t === 'relic' ? 24 : 16); // 유물은 더 크게 = 목표물
+    }
   }
 
   buildHUD() {
@@ -136,7 +140,8 @@ HK.MineScene = class extends Phaser.Scene {
     this.o2Bar.scaleX = ratio;
     this.o2Bar.setFillStyle(ratio < 0.3 ? 0xff5a52 : 0x3fd0ff);
     this.o2Text.setText('산소 ' + Math.max(0, this.o2) + '/' + max);
-    this.infoText.setText('깊이 ' + this.py + 'm · 수확 ' + this.loot + 'G');
+    var relicMark = this.carriedRelics.length > 0 ? ' · ✦유물 ×' + this.carriedRelics.length : '';
+    this.infoText.setText('깊이 ' + this.py + 'm · 수확 ' + this.loot + 'G' + relicMark);
     var ng = this.gasNeighbors(), nc = this.collapseNeighbors();
     this.gasHintText.setText(ng > 0 ? '쉭쉭… 가스 ×' + ng : '');
     this.colHintText.setText(nc > 0 ? '우르릉… 붕괴 ×' + nc : '');
@@ -251,6 +256,11 @@ HK.MineScene = class extends Phaser.Scene {
         var healed = Math.min(HK.state.maxO2(), this.o2 + C.O2_CAPSULE) - this.o2;
         this.o2 += healed;
         this.floatText(c, r, '+' + healed + ' 산소', '#63d8b2');
+      } else if (tile.t === 'relic') {
+        // 유물: 줍는 건 쉽다. 어려운 건 "들고 살아서 돌아가는 것" (명세 §2.9)
+        this.carriedRelics.push(tile.idx);
+        this.floatText(c, r, '✦ ' + C.RELICS[tile.idx].name + ' 발견! 살아서 귀환하라', '#c77dff');
+        this.cameras.main.flash(250, 160, 100, 220);
       }
       tile.t = 'empty';
       this.paintTile(r, c);
@@ -307,6 +317,11 @@ HK.MineScene = class extends Phaser.Scene {
         fontFamily: 'sans-serif', fontSize: '15px', color: '#ffd23f', fontStyle: 'bold',
       }).setOrigin(0.5));
     }
+    if (this.carriedRelics.length > 0) {
+      ov.push(this.add.text(W / 2, 344, '✦ 들고 있던 유물을 광산에 두고 왔다…', {
+        fontFamily: 'sans-serif', fontSize: '14px', color: '#c77dff', fontStyle: 'bold',
+      }).setOrigin(0.5));
+    }
     var retry = this.add.text(W / 2, 375, '⛏  다시 잠수', {
       fontFamily: 'sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#2e7d4f', padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -320,15 +335,27 @@ HK.MineScene = class extends Phaser.Scene {
     for (var i = 0; i < ov.length; i++) ov[i].setScrollFactor(0).setDepth(20);
   }
 
-  // 메타 반영은 이 함수에서만: 골드 확정 + 런 수 + 최고 깊이 + 저장 → 목적지 씬으로
+  // 메타 반영은 이 함수에서만: 골드 확정 + 통계 + 유물 확정 + 저장 → 목적지 씬으로
   // dest='Mine'이면 즉시 재잠수(리트라이 1클릭), 'Shop'이면 요약과 함께 지상 기지
+  // 유물 규칙(명세 §2.9): 귀환했을 때만 확정. 3개를 모두 확정한 귀환은 엔딩으로 직행
   doFinish(gained, died, dest) {
     var m = HK.state.meta;
     m.gold += gained;
     m.runs += 1;
+    m.totalEarned = (m.totalEarned || 0) + gained;
+    if (died) m.deaths = (m.deaths || 0) + 1;
     m.bestDepth = Math.max(m.bestDepth, this.maxDepth);
+    var secured = [];
+    if (!died) {
+      for (var i = 0; i < this.carriedRelics.length; i++) {
+        var idx = this.carriedRelics[i];
+        if (!m.relics[idx]) { m.relics[idx] = true; secured.push(idx); }
+      }
+    }
     HK.state.save();
+    var allDone = m.relics[0] && m.relics[1] && m.relics[2];
+    if (!died && allDone && !m.endingSeen) { this.scene.start('Ending'); return; }
     if (dest === 'Mine') this.scene.start('Mine');
-    else this.scene.start('Shop', { gained: gained, raw: this.loot, died: died, depth: this.maxDepth });
+    else this.scene.start('Shop', { gained: gained, raw: this.loot, died: died, depth: this.maxDepth, securedRelics: secured });
   }
 };

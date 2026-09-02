@@ -35,12 +35,20 @@ HK.CFG = {
   COLORS: {
     surface: 0x2e5d3a, dirt: 0x6e5a3e, stone: 0x868c96, hardrock: 0x3e4550, empty: 0x232630,
     copper: 0xc1763f, silver: 0xd7dce4, gold: 0xffd23f, capsule: 0x63d8b2,
-    player: 0x48c7e8, hudBg: 0x0d0f13,
+    relic: 0xc77dff, player: 0x48c7e8, hudBg: 0x0d0f13,
   },
 
   // 암반 게이트(콘텐츠 2단계): 심부 진입을 곡괭이 진척에 묶는 벽 (docs/05 §3)
   // fullRow는 전부 암반(우회 불가), mixedRows는 mixedProb 확률로 암반 섞음
   HARDROCK_GATE: { fullRow: 39, mixedRows: [38, 40], mixedProb: 0.35 },
+
+  // 유물(콘텐츠 3단계, docs/05 §1): 깊이 단계별 고정 위치. 회수 전까지 매 런 같은 자리에 생성.
+  // 들고 "귀환해야" 확정 — 사망하면 광산에 남는다. 3개 모두 확정하면 엔딩.
+  RELICS: [
+    { row: 25, col: 2, name: '기록 ①', text: '먼저 내려간 사람의 곡괭이가 여기 박혀 있었다.\n날이 다 나갔는데, 발자국은 더 아래로 이어진다.' },
+    { row: 45, col: 6, name: '기록 ②', text: '벽에 새겨져 있다 — "돌아갈 산소를 남겨라."\n새긴 사람은 돌아갔을까.' },
+    { row: 60, col: 4, name: '기록 ③', text: '마지막 기록: "바닥이 보인다. 한 칸만 더."\n…기록은 여기서 끝난다.' },
+  ],
 
   // --- 업그레이드 비용 곡선 (배열 길이 = 최대 레벨) ---
   UPGRADES: {

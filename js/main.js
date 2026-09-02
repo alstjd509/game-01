@@ -5,7 +5,9 @@ HK.state.load();
 
 (function () {
   var firstRun = HK.state.meta.runs === 0;
-  var scenes = firstRun ? [HK.MineScene, HK.ShopScene] : [HK.ShopScene, HK.MineScene];
+  var scenes = firstRun
+    ? [HK.MineScene, HK.ShopScene, HK.EndingScene]
+    : [HK.ShopScene, HK.MineScene, HK.EndingScene];
   HK.game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

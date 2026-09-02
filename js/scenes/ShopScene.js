@@ -15,7 +15,7 @@ HK.ShopScene = class extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#191b21');
 
     this.add.text(W / 2, 34, '지상 기지', { fontFamily: 'sans-serif', fontSize: '24px', color: '#e8e2c8', fontStyle: 'bold' }).setOrigin(0.5);
-    this.add.text(W / 2, 60, '맨 땅에 헤딩 — 그레이박스 v0.2', { fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480' }).setOrigin(0.5);
+    this.add.text(W / 2, 60, '맨 땅에 헤딩 — 그레이박스', { fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480' }).setOrigin(0.5);
 
     // 직전 런 요약
     if (this.summary.gained !== undefined) {
@@ -29,9 +29,11 @@ HK.ShopScene = class extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    this.add.text(W / 2, 124, '골드 ' + m.gold + 'G   ·   최고 깊이 ' + m.bestDepth + 'm', {
-      fontFamily: 'sans-serif', fontSize: '16px', color: '#ffd23f',
-    }).setOrigin(0.5);
+    var relicCnt = (m.relics[0] ? 1 : 0) + (m.relics[1] ? 1 : 0) + (m.relics[2] ? 1 : 0);
+    this.add.text(W / 2, 124,
+      '골드 ' + m.gold + 'G · ✦유물 ' + relicCnt + '/3 · 최고 깊이 ' + m.bestDepth + 'm' + (m.endingSeen ? ' · 무한 모드' : ''), {
+        fontFamily: 'sans-serif', fontSize: '15px', color: '#ffd23f',
+      }).setOrigin(0.5);
 
     // 업그레이드 목록
     var keys = ['tank', 'pick', 'lamp'], y = 170, self = this;
@@ -80,5 +82,27 @@ HK.ShopScene = class extends Phaser.Scene {
     var reset = this.add.text(W / 2, 600, '기록 초기화', { fontFamily: 'sans-serif', fontSize: '11px', color: '#555a66' })
       .setOrigin(0.5).setInteractive({ useHandCursor: true });
     reset.on('pointerdown', function () { HK.state.reset(); self.scene.restart({}); });
+
+    // 이번 귀환에서 확정한 유물의 기록 조각 — 특별한 순간이므로 오버레이로 보여준다 (명세 §2.9)
+    if (this.summary.securedRelics && this.summary.securedRelics.length > 0) {
+      var ov = [this.add.rectangle(0, 0, W, 1000, 0x000000, 0.85).setOrigin(0, 0).setInteractive()];
+      var oy = 200;
+      this.summary.securedRelics.forEach(function (idx) {
+        var rl = C.RELICS[idx];
+        ov.push(self.add.text(W / 2, oy, '✦ ' + rl.name + ' 확보', {
+          fontFamily: 'sans-serif', fontSize: '18px', color: '#c77dff', fontStyle: 'bold',
+        }).setOrigin(0.5));
+        ov.push(self.add.text(W / 2, oy + 28, rl.text, {
+          fontFamily: 'sans-serif', fontSize: '13px', color: '#d9d3c0', align: 'center', lineSpacing: 5,
+        }).setOrigin(0.5, 0));
+        oy += 104;
+      });
+      var ok = this.add.text(W / 2, oy + 16, '계속', {
+        fontFamily: 'sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#2e5d7d', padding: { x: 18, y: 8 },
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      ov.push(ok);
+      ov.forEach(function (o) { o.setDepth(30); });
+      ok.on('pointerdown', function () { ov.forEach(function (o) { o.destroy(); }); });
+    }
   }
 };

@@ -7,7 +7,11 @@
 window.HK = window.HK || {};
 
 HK.state = {
-  meta: { gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bestDepth: 0, runs: 0 },
+  // relics: 유물 확정 회수 여부(3개) / deaths·totalEarned: 엔딩 통계용 / endingSeen: 엔딩 1회 표시 후 무한 모드
+  meta: {
+    gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bestDepth: 0, runs: 0,
+    relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
+  },
 
   load: function () {
     try {
@@ -22,7 +26,10 @@ HK.state = {
 
   // 상점의 "기록 초기화" — 개발·재미판정용 전체 리셋
   reset: function () {
-    this.meta = { gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bestDepth: 0, runs: 0 };
+    this.meta = {
+      gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bestDepth: 0, runs: 0,
+      relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
+    };
     this.save();
   },
 
