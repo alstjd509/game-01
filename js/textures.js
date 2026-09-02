@@ -139,6 +139,19 @@ window.HK = window.HK || {};
     '.....d.....',
     '...........',
   ];
+  var NOTE = [
+    '...........',
+    '...........',
+    '...wwwwww..',
+    '..wwlwlww..',
+    '..wllllww..',
+    '..wwlwlw...',
+    '..wllllw...',
+    '..wwwwww...',
+    '...........',
+    '...........',
+    '...........',
+  ];
   var PLAYER = [
     '...........',
     '...HHHHH...',
@@ -183,6 +196,8 @@ window.HK = window.HK || {};
     mk(scene, 'ov_gem', GEM, { p: '#ff6ad5', h: '#ffb3ec', w: '#ffffff' });
     mk(scene, 'ov_capsule', CAPSULE, { t: '#63d8b2', d: '#3fa886', w: '#e8fff7' });
     mk(scene, 'ov_relic', RELIC, { p: '#c77dff', d: '#8e4fd0', l: '#e3c2ff' });
+    mk(scene, 'ov_note', NOTE, { w: '#e8e2d0', l: '#b8b2a0' }); // 쪽지 — 접힌 종이
+
     mk(scene, 'spr_player', PLAYER, {
       H: '#ffd23f', L: '#fffbe0', S: '#e8b48a', E: '#2b2b2b',
       B: '#2e5d7d', b: '#24485f', F: '#2b2b2b',

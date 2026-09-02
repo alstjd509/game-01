@@ -63,6 +63,11 @@ HK.genMap = function () {
     if (!HK.state.meta.relics[i]) g[rl.row][rl.col] = { t: 'relic', idx: i, dug: false };
   });
 
+  // 쪽지 배치 (스토리, docs/07 §3): 미수집만 고정 위치에 생성 — 줍는 즉시 확정이라 재등장 없음
+  HK.STORY.NOTES.forEach(function (n, i) {
+    if (!HK.state.meta.notes[i]) g[n.row][n.col] = { t: 'note', idx: i, dug: false };
+  });
+
   // "첫 재미 10초" 보장 (기획서 §4): 시작 지점 근처는 안전 + 즉시 보상
   // - 1~3행의 중앙 3열(3~5열)에서 숨은 위험(가스·붕괴) 제거
   // - [1,4]·[2,3]에 구리 강제 배치 (이미 다른 광물·캡슐이면 그대로 둠)

@@ -104,13 +104,30 @@ HK.ShopScene = class extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     dive.on('pointerdown', function () { self.scene.start('Mine'); });
 
-    this.add.text(W / 2, y + 108, '가스도 붕괴도 흙과 똑같이 생겼다.\n힌트를 읽어라 — 초록(쉭쉭…)=가스, 주황(우르릉…)=붕괴.', {
+    // 하단 문구: 초반 3런은 튜토리얼 안내, 이후 스토리 플레이버(조건부 우선) — docs/07 §5
+    var tip;
+    if (m.runs < 3) {
+      tip = '가스도 붕괴도 흙과 똑같이 생겼다.\n힌트를 읽어라 — 초록(쉭쉭…)=가스, 주황(우르릉…)=붕괴.';
+    } else if (m.endingSeen) {
+      tip = HK.STORY.SHOP_FLAVOR_ENDING;
+    } else if (m.relics[0] || m.relics[1] || m.relics[2]) {
+      var pool = HK.STORY.SHOP_FLAVOR.concat([HK.STORY.SHOP_FLAVOR_RELIC]);
+      tip = pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      tip = HK.STORY.SHOP_FLAVOR[Math.floor(Math.random() * HK.STORY.SHOP_FLAVOR.length)];
+    }
+    this.add.text(W / 2, y + 108, tip, {
       fontFamily: 'sans-serif', fontSize: '12px', color: '#6f7480', align: 'center',
     }).setOrigin(0.5);
 
+    // 📜 기록 보기 — 수집한 유물 기록·쪽지 재열람 (docs/07 §7)
+    var recBtn = this.add.text(16, 622, '📜 기록', { fontFamily: 'sans-serif', fontSize: '12px', color: '#9aa0ad' })
+      .setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    recBtn.on('pointerdown', function () { self.showRecords(); });
+
     // 기록 초기화 (개발·판정용)
-    var reset = this.add.text(W / 2, 622, '기록 초기화', { fontFamily: 'sans-serif', fontSize: '11px', color: '#555a66' })
-      .setOrigin(0.5).setInteractive({ useHandCursor: true });
+    var reset = this.add.text(W - 16, 622, '기록 초기화', { fontFamily: 'sans-serif', fontSize: '11px', color: '#555a66' })
+      .setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
     reset.on('pointerdown', function () { HK.state.reset(); self.scene.restart({}); });
 
     // 이번 귀환에서 확정한 유물의 기록 조각 — 특별한 순간이므로 오버레이로 보여준다 (명세 §2.9)
@@ -134,5 +151,47 @@ HK.ShopScene = class extends Phaser.Scene {
       ov.forEach(function (o) { o.setDepth(30); });
       ok.on('pointerdown', function () { ov.forEach(function (o) { o.destroy(); }); });
     }
+  }
+
+  // 기록 열람 오버레이 — 확정한 유물 기록 + 수집한 쪽지를 깊이순으로 (docs/07 §7)
+  showRecords() {
+    var C = HK.CFG, W = C.COLS * C.TILE, m = HK.state.meta, self = this;
+    var ov = [this.add.rectangle(0, 0, W, 1000, 0x000000, 0.93).setOrigin(0, 0).setInteractive()];
+    ov.push(this.add.text(W / 2, 26, '기록', {
+      fontFamily: 'sans-serif', fontSize: '18px', color: '#e8e2c8', fontStyle: 'bold',
+    }).setOrigin(0.5));
+
+    var entries = [];
+    C.RELICS.forEach(function (rl, i) {
+      if (m.relics[i]) entries.push({ d: rl.row, title: '✦ ' + rl.name + ' · ' + rl.row + 'm', text: rl.text, color: '#c77dff' });
+    });
+    HK.STORY.NOTES.forEach(function (n, i) {
+      if (m.notes[i]) entries.push({ d: n.row, title: '📜 쪽지 · ' + n.row + 'm', text: n.text, color: '#b8b2a0' });
+    });
+    entries.sort(function (a, b) { return a.d - b.d; });
+
+    if (entries.length === 0) {
+      ov.push(this.add.text(W / 2, 300, '아직 수집한 기록이 없다.\n광산 곳곳에 쪽지가, 깊은 곳에 유물이 있다.', {
+        fontFamily: 'sans-serif', fontSize: '13px', color: '#9aa0ad', align: 'center', lineSpacing: 5,
+      }).setOrigin(0.5));
+    }
+    var oy = 52;
+    entries.forEach(function (e) {
+      ov.push(self.add.text(20, oy, e.title, {
+        fontFamily: 'sans-serif', fontSize: '12px', color: e.color, fontStyle: 'bold',
+      }));
+      var body = self.add.text(20, oy + 16, e.text, {
+        fontFamily: 'sans-serif', fontSize: '11px', color: '#d9d3c0', lineSpacing: 3,
+      });
+      ov.push(body);
+      oy += 18 + body.height + 9;
+    });
+
+    var close = this.add.text(W / 2, 618, '닫기', {
+      fontFamily: 'sans-serif', fontSize: '14px', color: '#ffffff', backgroundColor: '#3a3f4a', padding: { x: 18, y: 6 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    ov.push(close);
+    ov.forEach(function (o) { o.setDepth(40); });
+    close.on('pointerdown', function () { ov.forEach(function (o) { o.destroy(); }); });
   }
 };

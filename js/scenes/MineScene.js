@@ -112,6 +112,7 @@ HK.MineScene = class extends Phaser.Scene {
     var ovKey = null;
     if (!tile.dug) {
       if (tile.t === 'relic') ovKey = 'ov_relic';
+      else if (tile.t === 'note') ovKey = 'ov_note'; // 쪽지도 암흑 예외 — 스토리는 막지 않는다
       else if (!darkHidden && HK.isMineral(tile.t)) ovKey = 'ov_' + tile.t;
       else if (!darkHidden && tile.t === 'capsule') ovKey = 'ov_capsule';
     }
@@ -307,6 +308,11 @@ HK.MineScene = class extends Phaser.Scene {
         this.carriedRelics.push(tile.idx);
         this.floatText(c, r, '✦ ' + C.RELICS[tile.idx].name + ' 발견! 살아서 귀환하라', '#c77dff');
         this.cameras.main.flash(250, 160, 100, 220);
+      } else if (tile.t === 'note') {
+        // 쪽지(스토리): 줍는 즉시 확정 — 정보를 노가다로 만들지 않는다 (docs/07 §7)
+        HK.state.meta.notes[tile.idx] = true;
+        HK.state.save();
+        this.showNote(HK.STORY.NOTES[tile.idx].text);
       }
       tile.t = 'empty';
       this.paintTile(r, c);
@@ -321,6 +327,29 @@ HK.MineScene = class extends Phaser.Scene {
     });
     this.refreshHUD();
     if (this.o2 <= 0) this.die();
+  }
+
+  // 쪽지 내용을 하단 패널로 잠시 보여준다 — 런을 멈추지 않는다 (docs/07 §7)
+  showNote(text) {
+    var C = HK.CFG, W = C.COLS * C.TILE, self = this;
+    if (this.notePanel) { this.notePanel.forEach(function (o) { o.destroy(); }); }
+    var panel = [
+      this.add.rectangle(W / 2, 562, W - 24, 100, 0x0d0f13, 0.93),
+      this.add.text(W / 2, 528, '— 기록자의 쪽지 —', {
+        fontFamily: 'sans-serif', fontSize: '12px', color: '#9aa0ad',
+      }).setOrigin(0.5),
+      this.add.text(W / 2, 568, text, {
+        fontFamily: 'sans-serif', fontSize: '13px', color: '#e8e2d0', align: 'center', lineSpacing: 5,
+      }).setOrigin(0.5),
+    ];
+    panel.forEach(function (o) { o.setScrollFactor(0).setDepth(15); });
+    this.notePanel = panel;
+    this.time.delayedCall(4500, function () {
+      if (self.notePanel === panel) {
+        panel.forEach(function (o) { o.destroy(); });
+        self.notePanel = null;
+      }
+    });
   }
 
   floatText(c, r, str, color) {
@@ -353,7 +382,9 @@ HK.MineScene = class extends Phaser.Scene {
     ov.push(this.add.text(W / 2, 195, '질식했다…', {
       fontFamily: 'sans-serif', fontSize: '26px', color: '#ff6a5c', fontStyle: 'bold',
     }).setOrigin(0.5));
-    ov.push(this.add.text(W / 2, 232, '한 칸이 과했다.', {
+    // 사망 서브텍스트는 매번 다르게 (docs/07 §4)
+    var dline = HK.STORY.DEATH_LINES[Math.floor(Math.random() * HK.STORY.DEATH_LINES.length)];
+    ov.push(this.add.text(W / 2, 232, dline, {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#c9c2ae',
     }).setOrigin(0.5));
     ov.push(this.add.text(W / 2, 272, '수확 ' + this.loot + 'G 중 ' + kept + 'G만 건짐 (' + lostPct + '% 손실)\n최대 깊이 ' + this.maxDepth + 'm', {

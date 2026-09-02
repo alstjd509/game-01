@@ -36,7 +36,12 @@ HK.EndingScene = class extends Phaser.Scene {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#e8e2c8', align: 'center', lineSpacing: 6,
     }).setOrigin(0.5, 0);
 
-    var btn = this.add.text(W / 2, y + 122, '⛏  무한 모드로 계속', {
+    // 마무리 — 플레이어가 다음 "기록자"가 된다 (docs/07 §6)
+    this.add.text(W / 2, y + 92, HK.STORY.ENDING_CLOSER, {
+      fontFamily: 'sans-serif', fontSize: '13px', color: '#b8b2a0', align: 'center', lineSpacing: 6,
+    }).setOrigin(0.5, 0);
+
+    var btn = this.add.text(W / 2, y + 152, '⛏  무한 모드로 계속', {
       fontFamily: 'sans-serif', fontSize: '17px', color: '#ffffff', backgroundColor: '#2e7d4f', padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', function () { self.scene.start('Shop', {}); });

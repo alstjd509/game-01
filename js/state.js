@@ -12,6 +12,8 @@ HK.state = {
     gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, elevLv: 0, startDepth: 0,
     bestDepth: 0, runs: 0,
     relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
+    introSeen: false,                     // 오프닝 1회 (스토리)
+    notes: [false, false, false, false, false, false, false, false], // 쪽지 8개 수집 여부 (줍는 즉시 확정)
   },
 
   load: function () {
@@ -31,6 +33,8 @@ HK.state = {
       gold: 0, tankLv: 0, pickLv: 0, lampLv: 0, bagLv: 0, scanLv: 0, elevLv: 0, startDepth: 0,
       bestDepth: 0, runs: 0,
       relics: [false, false, false], deaths: 0, totalEarned: 0, endingSeen: false,
+      introSeen: false,
+      notes: [false, false, false, false, false, false, false, false],
     };
     this.save();
   },
