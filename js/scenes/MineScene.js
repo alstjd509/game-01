@@ -15,6 +15,8 @@ HK.MineScene = class extends Phaser.Scene {
     this.px = 4; this.py = 0;
     this.o2 = HK.state.maxO2();
     this.loot = 0; this.maxDepth = 0; this.ended = false;
+    this.stamps = {};      // 방문 칸의 가스 카운트 각인 (지뢰찾기식 추론 재료)
+    this.warned = false;   // 산소 30% 경고는 런당 1회
     this.gy = C.HUD_H;
 
     this.cameras.main.setBackgroundColor('#15171d');
@@ -43,7 +45,36 @@ HK.MineScene = class extends Phaser.Scene {
 
     this.buildHUD();
     this.input.on('pointerdown', this.onTap, this);
+
+    // 조작 안내 — 첫 행동과 함께 사라진다 (조작을 화면에서 알 수 있게, 명세 §2.1)
+    this.guide = this.add.text(C.COLS * C.TILE / 2, C.HUD_H + 10,
+      '옆 칸을 클릭 = 굴착·이동  (방향키·WASD도 가능)', {
+        fontFamily: 'sans-serif', fontSize: '14px', color: '#ffe94a',
+        backgroundColor: '#000000', padding: { x: 8, y: 4 },
+      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(9);
+
+    // 키보드 조작 — 마우스와 완전히 동일한 규칙(인접 4방향 행동)
+    var self = this;
+    var bind = function (keys, dx, dy) {
+      keys.forEach(function (k) {
+        self.input.keyboard.on('keydown-' + k, function () { self.tryDir(dx, dy); });
+      });
+    };
+    bind(['UP', 'W'], 0, -1);
+    bind(['DOWN', 'S'], 0, 1);
+    bind(['LEFT', 'A'], -1, 0);
+    bind(['RIGHT', 'D'], 1, 0);
+
+    this.stampVisited(this.py, this.px); // 시작 위치에도 각인 (첫 힌트)
     this.refreshHUD();
+  }
+
+  // 키보드 입력 → 인접 4방향 행동 (onTap과 동일한 최종 경로 act 사용)
+  tryDir(dx, dy) {
+    if (this.ended) return;
+    var r = this.py + dy, c = this.px + dx;
+    if (r < 0 || r >= HK.CFG.ROWS || c < 0 || c >= HK.CFG.COLS) return;
+    this.act(r, c);
   }
 
   // ---------- 렌더 ----------
@@ -55,9 +86,10 @@ HK.MineScene = class extends Phaser.Scene {
     else if (tile.t === 'stone') col = C.COLORS.stone;
     else col = C.COLORS.dirt; // 흙·광물·가스는 같은 흙 표면 (가스는 숨은 위험)
     o.rect.setFillStyle(col);
-    var mineral = !tile.dug && HK.isMineral(tile.t);
-    o.inner.setVisible(mineral);
-    if (mineral) o.inner.setFillStyle(C.COLORS[tile.t]);
+    // 광물·캡슐은 항상 보인다(경로 계획 대상). 가스만 숨어 있다.
+    var visible = !tile.dug && (HK.isMineral(tile.t) || tile.t === 'capsule');
+    o.inner.setVisible(visible);
+    if (visible) o.inner.setFillStyle(C.COLORS[tile.t]);
   }
 
   buildHUD() {
@@ -94,22 +126,57 @@ HK.MineScene = class extends Phaser.Scene {
     this.infoText.setText('깊이 ' + this.py + 'm · 수확 ' + this.loot + 'G');
     var n = this.gasNeighbors();
     this.hintText.setText(n > 0 ? '쉭쉭… 인접 가스 ×' + n : '');
+
+    // 산소 30% 경고(런당 1회) — 죽음을 "예고된 선택"으로 만든다: 여기서부터는 버티는 게 내 결정
+    if (!this.warned && ratio > 0 && ratio <= 0.3) {
+      this.warned = true;
+      var C = HK.CFG, W = C.COLS * C.TILE, self = this;
+      var warn = this.add.text(W / 2, 250, '산소 30%!  더 갈까, 귀환할까?', {
+        fontFamily: 'sans-serif', fontSize: '17px', color: '#ffffff', fontStyle: 'bold',
+        backgroundColor: '#8a2f2f', padding: { x: 12, y: 8 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(15);
+      this.tweens.add({ targets: warn, alpha: 0, delay: 1300, duration: 500, onComplete: function () { warn.destroy(); } });
+    }
   }
 
-  // 가스 힌트(차별화 핵심): 현재 위치에서 "안 파인" 인접 타일 중 가스 개수.
+  // 가스 힌트(차별화 핵심): 해당 칸에서 "안 파인" 인접 타일 중 가스 개수.
   // 램프 Lv0 = 4방향, Lv1 = 8방향(대각 포함). 위치는 특정해주지 않는다 — 추론은 플레이어 몫.
-  gasNeighbors() {
+  gasNeighbors() { return this.gasNeighborsAt(this.py, this.px); }
+
+  gasNeighborsAt(r0, c0) {
     var dirs4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
     var dirs8 = dirs4.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
     var dirs = HK.state.meta.lampLv >= 1 ? dirs8 : dirs4;
     var n = 0;
     for (var i = 0; i < dirs.length; i++) {
-      var r = this.py + dirs[i][1], c = this.px + dirs[i][0];
+      var r = r0 + dirs[i][1], c = c0 + dirs[i][0];
       if (r < 0 || r >= HK.CFG.ROWS || c < 0 || c >= HK.CFG.COLS) continue;
       var t = this.map[r][c];
       if (!t.dug && t.t === 'gas') n++;
     }
     return n;
+  }
+
+  // 방문한 칸에 가스 카운트를 각인 — 여러 칸의 숫자를 조합해 가스 위치를 추론하게 한다 (명세 §2.4)
+  // 가스가 터지거나 파이면 정보가 변하므로, 행동마다 모든 각인을 다시 계산한다
+  stampVisited(r, c) {
+    var key = r + ',' + c;
+    if (!this.stamps[key]) {
+      var C = HK.CFG;
+      this.stamps[key] = this.add.text(
+        c * C.TILE + C.TILE / 2, this.gy + r * C.TILE + C.TILE / 2, '', {
+          fontFamily: 'sans-serif', fontSize: '13px', color: '#ffce6a', fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(4);
+    }
+    this.updateStamps();
+  }
+
+  updateStamps() {
+    for (var key in this.stamps) {
+      var p = key.split(',');
+      var n = this.gasNeighborsAt(parseInt(p[0], 10), parseInt(p[1], 10));
+      this.stamps[key].setText(n > 0 ? String(n) : '');
+    }
   }
 
   // ---------- 입력·행동 ----------
@@ -129,6 +196,7 @@ HK.MineScene = class extends Phaser.Scene {
   //   파인 칸 이동 = MOVE_COST / 흙·광물·가스 굴착 = DIRT_COST / 돌 = 곡괭이Lv별
   //   가스는 굴착 비용에 GAS_PENALTY가 "추가"된다 (합계 1+8)
   act(r, c) {
+    if (this.guide) { this.guide.destroy(); this.guide = null; } // 첫 행동 시 안내 제거
     var C = HK.CFG, tile = this.map[r][c];
     if (tile.dug) {
       this.o2 -= C.MOVE_COST;
@@ -144,12 +212,18 @@ HK.MineScene = class extends Phaser.Scene {
         this.o2 -= C.GAS_PENALTY;
         this.floatText(c, r, '가스! -' + C.GAS_PENALTY + ' 산소', '#8ee85a');
         this.cameras.main.shake(140, 0.008);
+      } else if (tile.t === 'capsule') {
+        // 산소 캡슐: 최대치를 넘지 않는 만큼만 회복 (굴착 비용 차감 후 기준)
+        var healed = Math.min(HK.state.maxO2(), this.o2 + C.O2_CAPSULE) - this.o2;
+        this.o2 += healed;
+        this.floatText(c, r, '+' + healed + ' 산소', '#63d8b2');
       }
       tile.t = 'empty';
       this.paintTile(r, c);
     }
     this.px = c; this.py = r;
     this.maxDepth = Math.max(this.maxDepth, r);
+    this.stampVisited(r, c); // 방문 각인 + 전체 각인 재계산
     this.tweens.add({
       targets: this.player,
       x: c * C.TILE + C.TILE / 2, y: this.gy + r * C.TILE + C.TILE / 2,
@@ -171,39 +245,56 @@ HK.MineScene = class extends Phaser.Scene {
   // 귀환 = 수확 100% 확정(언제든, 무료) / 사망 = DEATH_KEEP 비율만 확정(내림)
   returnHome() {
     if (this.ended) return;
-    this.finish(this.loot, false);
+    this.ended = true;
+    this.doFinish(this.loot, false, 'Shop');
   }
 
+  // 사망 화면의 설계 의도(조정 1회): "질식했다"는 사실 통보가 아니라
+  // ① 욕심의 대가를 숫자로 들이밀고(귀환했으면 +XG) ② 1클릭 재잠수로 "다시!"를 바로 받는다
   die() {
     if (this.ended) return;
     this.ended = true;
-    var kept = Math.floor(this.loot * HK.CFG.DEATH_KEEP);
-    var C = HK.CFG, W = C.COLS * C.TILE;
+    var C = HK.CFG, W = C.COLS * C.TILE, self = this;
+    var kept = Math.floor(this.loot * C.DEATH_KEEP);
+    var lostPct = Math.round((1 - C.DEATH_KEEP) * 100);
     var ov = [];
     ov.push(this.add.rectangle(0, 0, W, 1000, 0x000000, 0.72).setOrigin(0, 0));
-    ov.push(this.add.text(W / 2, 230, '질식했다…', { fontFamily: 'sans-serif', fontSize: '26px', color: '#ff6a5c', fontStyle: 'bold' }).setOrigin(0.5));
-    ov.push(this.add.text(W / 2, 275, '수확 ' + this.loot + 'G → ' + kept + 'G (50% 손실)\n최대 깊이 ' + this.maxDepth + 'm', {
+    ov.push(this.add.text(W / 2, 195, '질식했다…', {
+      fontFamily: 'sans-serif', fontSize: '26px', color: '#ff6a5c', fontStyle: 'bold',
+    }).setOrigin(0.5));
+    ov.push(this.add.text(W / 2, 232, '한 칸이 과했다.', {
+      fontFamily: 'sans-serif', fontSize: '14px', color: '#c9c2ae',
+    }).setOrigin(0.5));
+    ov.push(this.add.text(W / 2, 272, '수확 ' + this.loot + 'G 중 ' + kept + 'G만 건짐 (' + lostPct + '% 손실)\n최대 깊이 ' + this.maxDepth + 'm', {
       fontFamily: 'sans-serif', fontSize: '15px', color: '#e8e2c8', align: 'center',
     }).setOrigin(0.5));
-    var btn = this.add.text(W / 2, 340, '지상으로', {
-      fontFamily: 'sans-serif', fontSize: '17px', color: '#ffffff', backgroundColor: '#7d2e2e', padding: { x: 16, y: 8 },
+    if (this.loot > kept) {
+      ov.push(this.add.text(W / 2, 318, '귀환만 했어도 +' + this.loot + 'G 확정이었다', {
+        fontFamily: 'sans-serif', fontSize: '15px', color: '#ffd23f', fontStyle: 'bold',
+      }).setOrigin(0.5));
+    }
+    var retry = this.add.text(W / 2, 375, '⛏  다시 잠수', {
+      fontFamily: 'sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#2e7d4f', padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    var self = this;
-    btn.on('pointerdown', function () { self.finishDead(kept); });
-    ov.push(btn);
+    retry.on('pointerdown', function () { self.doFinish(kept, true, 'Mine'); });
+    ov.push(retry);
+    var toShop = this.add.text(W / 2, 425, '지상 기지 (장비 구매)', {
+      fontFamily: 'sans-serif', fontSize: '14px', color: '#cfd4dc', backgroundColor: '#3a3f4a', padding: { x: 12, y: 7 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    toShop.on('pointerdown', function () { self.doFinish(kept, true, 'Shop'); });
+    ov.push(toShop);
     for (var i = 0; i < ov.length; i++) ov[i].setScrollFactor(0).setDepth(20);
   }
 
-  finishDead(kept) { this.doFinish(kept, true); }
-  finish(gained, died) { this.ended = true; this.doFinish(gained, died); }
-
-  // 메타 반영은 이 함수에서만: 골드 확정 + 런 수 + 최고 깊이 + 저장 → 상점으로
-  doFinish(gained, died) {
+  // 메타 반영은 이 함수에서만: 골드 확정 + 런 수 + 최고 깊이 + 저장 → 목적지 씬으로
+  // dest='Mine'이면 즉시 재잠수(리트라이 1클릭), 'Shop'이면 요약과 함께 지상 기지
+  doFinish(gained, died, dest) {
     var m = HK.state.meta;
     m.gold += gained;
     m.runs += 1;
     m.bestDepth = Math.max(m.bestDepth, this.maxDepth);
     HK.state.save();
-    this.scene.start('Shop', { gained: gained, raw: this.loot, died: died, depth: this.maxDepth });
+    if (dest === 'Mine') this.scene.start('Mine');
+    else this.scene.start('Shop', { gained: gained, raw: this.loot, died: died, depth: this.maxDepth });
   }
 };

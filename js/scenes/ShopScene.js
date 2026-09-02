@@ -20,8 +20,9 @@ HK.ShopScene = class extends Phaser.Scene {
     // 직전 런 요약
     if (this.summary.gained !== undefined) {
       var s = this.summary;
+      var lostPct = Math.round((1 - C.DEATH_KEEP) * 100); // 손실률은 config에서 파생(하드코딩 금지)
       var line = s.died
-        ? '질식! 수확 ' + s.raw + 'G → ' + s.gained + 'G (50% 손실) · 깊이 ' + s.depth + 'm'
+        ? '질식! 수확 ' + s.raw + 'G → ' + s.gained + 'G (' + lostPct + '% 손실) · 깊이 ' + s.depth + 'm'
         : '귀환 성공! +' + s.gained + 'G · 깊이 ' + s.depth + 'm';
       this.add.text(W / 2, 92, line, {
         fontFamily: 'sans-serif', fontSize: '14px', color: s.died ? '#ff8a7a' : '#8ee8a0',

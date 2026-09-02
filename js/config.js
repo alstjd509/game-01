@@ -19,7 +19,8 @@ HK.CFG = {
 
   // --- 리스크·정산 ---
   GAS_PENALTY: 8,           // 가스 타일을 팠을 때 추가 산소 손실
-  DEATH_KEEP: 0.5,          // 사망(산소 0) 시 수확 유지 비율 — 내림 처리
+  DEATH_KEEP: 0.3,          // 사망 시 수확 유지 비율(내림). 0.5→0.3 (2026-09-02 조정 1회: 갈등 "조금"→죽음이 더 아파야 귀환 고민이 생김)
+  O2_CAPSULE: 10,           // 산소 캡슐 회복량 (최대 산소 초과 불가)
 
   // --- 광물 가치(G) ---
   VALUE: { copper: 1, silver: 3, gold: 8 },
@@ -28,7 +29,7 @@ HK.CFG = {
   // 주의: 가스 타일은 dirt와 같은 색을 쓴다 = "숨은 위험"이 규칙의 핵심
   COLORS: {
     surface: 0x2e5d3a, dirt: 0x6e5a3e, stone: 0x868c96, empty: 0x232630,
-    copper: 0xc1763f, silver: 0xd7dce4, gold: 0xffd23f,
+    copper: 0xc1763f, silver: 0xd7dce4, gold: 0xffd23f, capsule: 0x63d8b2,
     player: 0x48c7e8, hudBg: 0x0d0f13,
   },
 
