@@ -40,8 +40,10 @@ HK.MineScene = class extends Phaser.Scene {
     // 층 경계 라벨 — "여기서부터 다른 층"이라는 체감 (명세 §2.8)
     for (var si = 1; si < C.STRATA.length; si++) {
       var st = C.STRATA[si];
+      // 암흑 층은 램프가 모자라면 라벨로 예고한다 (상점의 램프 Lv2 구매 동기)
+      var darkTag = (st.dark && HK.state.meta.lampLv < C.LAMP_REQ_DARK) ? ' · 어둠' : '';
       this.add.text(C.COLS * C.TILE / 2, this.gy + st.from * C.TILE - 8,
-        '—  ' + st.name + '  ' + st.from + 'm  —', {
+        '—  ' + st.name + '  ' + st.from + 'm' + darkTag + '  —', {
           fontFamily: 'sans-serif', fontSize: '12px', color: '#b8bcc7',
           backgroundColor: '#000000', padding: { x: 6, y: 2 },
         }).setOrigin(0.5).setDepth(6);
@@ -98,8 +100,10 @@ HK.MineScene = class extends Phaser.Scene {
     else if (tile.t === 'hardrock') col = C.COLORS.hardrock; // 암반은 항상 보이는 벽 (게이트)
     else col = HK.strataAt(r).dirtColor; // 흙·광물·가스·붕괴는 그 층의 흙 표면 (위험은 숨어 있다)
     o.rect.setFillStyle(col);
-    // 광물·캡슐·유물은 항상 보인다(경로 계획 대상). 가스·붕괴만 숨어 있다.
-    var visible = !tile.dug && (HK.isMineral(tile.t) || tile.t === 'capsule' || tile.t === 'relic');
+    // 광물·캡슐은 보인다(경로 계획 대상) — 단, 암흑 층에서는 램프 Lv2 없이 숨겨진다 (콘텐츠 4단계).
+    // 유물은 목표물이므로 암흑에서도 항상 보인다. 가스·붕괴는 어디서든 숨어 있다.
+    var darkHidden = HK.strataAt(r).dark && HK.state.meta.lampLv < C.LAMP_REQ_DARK;
+    var visible = !tile.dug && (tile.t === 'relic' || (!darkHidden && (HK.isMineral(tile.t) || tile.t === 'capsule')));
     o.inner.setVisible(visible);
     if (visible) {
       o.inner.setFillStyle(C.COLORS[tile.t]);

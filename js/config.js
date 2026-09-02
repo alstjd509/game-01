@@ -27,14 +27,17 @@ HK.CFG = {
   CAPSULE_PROB: 0.025,      // 산소 캡슐 생성 확률 (전 층 공통, 깊이 무관)
 
   // --- 광물 가치(G) ---
-  VALUE: { copper: 1, silver: 3, gold: 8 },
+  VALUE: { copper: 1, silver: 3, gold: 8, gem: 20 }, // 보석: 심부 극희귀 유혹 장치 (콘텐츠 4단계)
+
+  // --- 암흑 (콘텐츠 4단계) ---
+  LAMP_REQ_DARK: 2,         // 암흑 층에서 광물·캡슐이 보이려면 필요한 램프 레벨 (유물은 항상 보임)
 
   // --- 색상 (그레이박스: 도형만 사용) ---
   // 주의: 가스·붕괴 타일은 그 층의 흙 색(STRATA.dirtColor)을 그대로 쓴다 = "숨은 위험"이 규칙의 핵심
   // (아래 dirt는 레거시 참조용 — 실제 흙 색은 층별 STRATA.dirtColor가 정본)
   COLORS: {
     surface: 0x2e5d3a, dirt: 0x6e5a3e, stone: 0x868c96, hardrock: 0x3e4550, empty: 0x232630,
-    copper: 0xc1763f, silver: 0xd7dce4, gold: 0xffd23f, capsule: 0x63d8b2,
+    copper: 0xc1763f, silver: 0xd7dce4, gold: 0xffd23f, gem: 0xff6ad5, capsule: 0x63d8b2,
     relic: 0xc77dff, player: 0x48c7e8, hudBg: 0x0d0f13,
   },
 
@@ -54,7 +57,7 @@ HK.CFG = {
   UPGRADES: {
     tank: { name: '산소통', costs: [10, 25, 60, 140, 300] },
     pick: { name: '곡괭이', costs: [15, 40] },
-    lamp: { name: '램프',   costs: [20] },
+    lamp: { name: '램프',   costs: [20, 55] },
   },
 };
 
@@ -93,6 +96,7 @@ HK.CFG.STRATA = [
   {
     name: '심부', from: 41, to: 64,
     dirtColor: 0x4c4452,
+    dark: true,                      // 암흑 층: 램프 LAMP_REQ_DARK 미만이면 광물·캡슐이 안 보임 (콘텐츠 4단계)
     probs: {
       gas:      [0.14, 0.0015],      // 위험 밀도 최고
       collapse: [0.07, 0.001],
@@ -100,6 +104,7 @@ HK.CFG.STRATA = [
       copper:   [0.03, 0],
       silver:   [0.05, 0],
       gold:     [0.06, 0.001],       // 금 중심 층
+      gem:      [0.008, 0],          // 보석(20G) 극희귀 — "저거 하나면 산소통 산다"
     },
   },
 ];
@@ -129,7 +134,11 @@ HK.upgradeDesc = {
     if (lv >= HK.CFG.PICK_REQ_HARDROCK) s += ' · 암반 굴착 가능';
     return s;
   },
-  lamp: function (lv) { return lv === 0 ? '가스 힌트: 상하좌우' : '가스 힌트: 8방향'; },
+  lamp: function (lv) {
+    if (lv === 0) return '위험 힌트: 상하좌우';
+    if (lv === 1) return '위험 힌트: 8방향';
+    return '8방향 + 심부 암흑 투시';
+  },
 };
 
 // 개발용 디버그: URL에 ?o2=8 을 붙이면 시작 산소를 강제 → 사망 흐름을 빠르게 테스트

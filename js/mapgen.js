@@ -25,6 +25,7 @@ HK.genMap = function () {
       else if (roll < (acc += HK.tileProb(st, 'copper', d))) t = 'copper';
       else if (roll < (acc += HK.tileProb(st, 'silver', d))) t = 'silver';
       else if (roll < (acc += HK.tileProb(st, 'gold', d))) t = 'gold';
+      else if (roll < (acc += HK.tileProb(st, 'gem', d))) t = 'gem'; // 심부에만 확률 정의됨
       else if (roll < (acc += C.CAPSULE_PROB)) t = 'capsule';
       row.push({ t: t, dug: false });
     }
@@ -73,5 +74,5 @@ HK.genMap = function () {
   return g;
 };
 
-HK.isMineral = function (t) { return t === 'copper' || t === 'silver' || t === 'gold'; };
+HK.isMineral = function (t) { return t === 'copper' || t === 'silver' || t === 'gold' || t === 'gem'; };
 HK.isHazard = function (t) { return t === 'gas' || t === 'collapse'; };
